@@ -1,0 +1,27 @@
+{
+  "location": {
+    "name": "Ludington Yacht Club",
+    "club_lat": 43.9551,
+    "club_lon": -86.4515,
+    "bearing": 270,
+    "sample_lat": 43.9551,
+    "sample_lon": -86.54410751907172
+  },
+  "radius_nm": 4.0,
+  "stats": {
+    "n_obs": 522,
+    "date_range": [
+      "2015-09-08T14:00:00",
+      "2025-09-14T20:00:00"
+    ],
+    "mean_speed_kt": 8.87184428757244,
+    "median_speed_kt": 8.423247329663045,
+    "max_speed_kt": 22.57197455018353,
+    "p90_speed_kt": 15.312587525993669,
+    "pct_under_5kt": 21.26436781609195,
+    "pct_5_to_15kt": 67.04980842911877,
+    "pct_over_15kt": 11.685823754789272,
+    "dominant_direction_deg": 217.88777933884558,
+    "direction_steadiness_R": 0.11564627740515872
+  }
+}

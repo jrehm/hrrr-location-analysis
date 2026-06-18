@@ -1,0 +1,27 @@
+{
+  "location": {
+    "name": "Grand Traverse Yacht Club",
+    "club_lat": 44.7481,
+    "club_lon": -85.6358,
+    "bearing": 340,
+    "sample_lat": 44.810746174719064,
+    "sample_lon": -85.66790512938844
+  },
+  "radius_nm": 4.0,
+  "stats": {
+    "n_obs": 523,
+    "date_range": [
+      "2015-09-08T14:00:00",
+      "2025-09-14T20:00:00"
+    ],
+    "mean_speed_kt": 6.409240874362602,
+    "median_speed_kt": 6.198540499222394,
+    "max_speed_kt": 16.35733539892332,
+    "p90_speed_kt": 10.632086645612482,
+    "pct_under_5kt": 36.52007648183556,
+    "pct_5_to_15kt": 62.7151051625239,
+    "pct_over_15kt": 0.7648183556405354,
+    "dominant_direction_deg": 27.22017116085082,
+    "direction_steadiness_R": 0.04049293669983203
+  }
+}

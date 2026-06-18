@@ -1,0 +1,27 @@
+{
+  "location": {
+    "name": "Tawas Bay Yacht Club",
+    "club_lat": 44.2629,
+    "club_lon": -83.4423,
+    "bearing": 75,
+    "sample_lat": 44.27152730150342,
+    "sample_lon": -83.39734047971062
+  },
+  "radius_nm": 4.0,
+  "stats": {
+    "n_obs": 523,
+    "date_range": [
+      "2015-09-08T14:00:00",
+      "2025-09-14T20:00:00"
+    ],
+    "mean_speed_kt": 8.393753568013159,
+    "median_speed_kt": 8.102770869411358,
+    "max_speed_kt": 17.274798288453702,
+    "p90_speed_kt": 13.463067781701053,
+    "pct_under_5kt": 18.738049713193117,
+    "pct_5_to_15kt": 76.67304015296367,
+    "pct_over_15kt": 4.588910133843212,
+    "dominant_direction_deg": 137.0899967869819,
+    "direction_steadiness_R": 0.16495622269044793
+  }
+}

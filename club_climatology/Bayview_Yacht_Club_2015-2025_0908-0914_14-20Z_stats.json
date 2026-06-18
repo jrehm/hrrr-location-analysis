@@ -1,0 +1,27 @@
+{
+  "location": {
+    "name": "Bayview Yacht Club",
+    "club_lat": 42.3592,
+    "club_lon": -82.9596,
+    "bearing": 100,
+    "sample_lat": 42.35341172741111,
+    "sample_lon": -82.9151753741904
+  },
+  "radius_nm": 4.0,
+  "stats": {
+    "n_obs": 523,
+    "date_range": [
+      "2015-09-08T14:00:00",
+      "2025-09-14T20:00:00"
+    ],
+    "mean_speed_kt": 6.749802259049597,
+    "median_speed_kt": 6.25375271988838,
+    "max_speed_kt": 17.993279575825532,
+    "p90_speed_kt": 11.290530597734024,
+    "pct_under_5kt": 32.313575525812624,
+    "pct_5_to_15kt": 65.39196940726578,
+    "pct_over_15kt": 2.294455066921606,
+    "dominant_direction_deg": 36.07091332128473,
+    "direction_steadiness_R": 0.24136845057711612
+  }
+}

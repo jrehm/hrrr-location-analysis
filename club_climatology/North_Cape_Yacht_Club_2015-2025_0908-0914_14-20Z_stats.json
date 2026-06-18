@@ -1,0 +1,27 @@
+{
+  "location": {
+    "name": "North Cape Yacht Club",
+    "club_lat": 41.8278,
+    "club_lon": -83.4085,
+    "bearing": 100,
+    "sample_lat": 41.82201172741111,
+    "sample_lon": -83.36444603160074
+  },
+  "radius_nm": 4.0,
+  "stats": {
+    "n_obs": 523,
+    "date_range": [
+      "2015-09-08T14:00:00",
+      "2025-09-14T20:00:00"
+    ],
+    "mean_speed_kt": 7.307748772050371,
+    "median_speed_kt": 6.719720589345801,
+    "max_speed_kt": 22.139364914631372,
+    "p90_speed_kt": 11.964249765131362,
+    "pct_under_5kt": 27.151051625239003,
+    "pct_5_to_15kt": 70.17208413001912,
+    "pct_over_15kt": 2.676864244741874,
+    "dominant_direction_deg": 69.3457689920165,
+    "direction_steadiness_R": 0.23563034595450372
+  }
+}

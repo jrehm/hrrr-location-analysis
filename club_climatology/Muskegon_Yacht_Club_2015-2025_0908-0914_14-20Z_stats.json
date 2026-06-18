@@ -1,0 +1,27 @@
+{
+  "location": {
+    "name": "Muskegon Yacht Club",
+    "club_lat": 43.2205,
+    "club_lon": -86.3207,
+    "bearing": 285,
+    "sample_lat": 43.237754603006834,
+    "sample_lon": -86.4090669065065
+  },
+  "radius_nm": 4.0,
+  "stats": {
+    "n_obs": 523,
+    "date_range": [
+      "2015-09-08T14:00:00",
+      "2025-09-14T20:00:00"
+    ],
+    "mean_speed_kt": 8.908132116212466,
+    "median_speed_kt": 8.37987618248382,
+    "max_speed_kt": 21.080735269182014,
+    "p90_speed_kt": 14.794408929558415,
+    "pct_under_5kt": 18.35564053537285,
+    "pct_5_to_15kt": 72.46653919694073,
+    "pct_over_15kt": 9.177820267686425,
+    "dominant_direction_deg": 188.24251993147786,
+    "direction_steadiness_R": 0.17839122726512527
+  }
+}

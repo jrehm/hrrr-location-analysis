@@ -1,0 +1,27 @@
+{
+  "location": {
+    "name": "Huron Yacht Club (Caseville)",
+    "club_lat": 43.9448,
+    "club_lon": -83.2787,
+    "bearing": 315,
+    "sample_lat": 43.98015533905933,
+    "sample_lon": -83.32780404319315
+  },
+  "radius_nm": 4.0,
+  "stats": {
+    "n_obs": 476,
+    "date_range": [
+      "2015-09-08T14:00:00",
+      "2025-09-14T20:00:00"
+    ],
+    "mean_speed_kt": 8.326349124131697,
+    "median_speed_kt": 7.855699238484845,
+    "max_speed_kt": 18.95485911104851,
+    "p90_speed_kt": 14.251552466653404,
+    "pct_under_5kt": 25.840336134453786,
+    "pct_5_to_15kt": 66.80672268907563,
+    "pct_over_15kt": 7.352941176470589,
+    "dominant_direction_deg": 301.8813472196584,
+    "direction_steadiness_R": 0.1962622770109929
+  }
+}

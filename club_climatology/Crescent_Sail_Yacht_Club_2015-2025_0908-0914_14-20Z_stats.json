@@ -1,0 +1,27 @@
+{
+  "location": {
+    "name": "Crescent Sail Yacht Club",
+    "club_lat": 42.4021,
+    "club_lon": -82.8851,
+    "bearing": 50,
+    "sample_lat": 42.42352625365621,
+    "sample_lon": -82.85052015744819
+  },
+  "radius_nm": 4.0,
+  "stats": {
+    "n_obs": 523,
+    "date_range": [
+      "2015-09-08T14:00:00",
+      "2025-09-14T20:00:00"
+    ],
+    "mean_speed_kt": 7.195020752928669,
+    "median_speed_kt": 6.438295125026609,
+    "max_speed_kt": 20.0808138332715,
+    "p90_speed_kt": 12.205073649524927,
+    "pct_under_5kt": 30.019120458891013,
+    "pct_5_to_15kt": 66.73040152963671,
+    "pct_over_15kt": 3.2504780114722758,
+    "dominant_direction_deg": 47.16259923386475,
+    "direction_steadiness_R": 0.2720403970295951
+  }
+}

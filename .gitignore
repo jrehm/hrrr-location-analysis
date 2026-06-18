@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Herbie GRIB2 cache (written outside this dir by default, but just in case)
+*.grib2
+*.idx
+
+# Intermediate HTML (generated from MD, not needed in repo)
+Venue_Wind_Analysis_2028_Proposal.html
+
+# Claude Code internal files
+.claude/
+
+# Editor
+.vscode/
+*.swp

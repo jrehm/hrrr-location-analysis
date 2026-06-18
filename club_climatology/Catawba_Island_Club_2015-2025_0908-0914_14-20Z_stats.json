@@ -1,0 +1,27 @@
+{
+  "location": {
+    "name": "Catawba Island Club",
+    "club_lat": 41.534,
+    "club_lon": -82.862,
+    "bearing": 60,
+    "sample_lat": 41.550666666666665,
+    "sample_lon": -82.82343606178675
+  },
+  "radius_nm": 4.0,
+  "stats": {
+    "n_obs": 523,
+    "date_range": [
+      "2015-09-08T14:00:00",
+      "2025-09-14T20:00:00"
+    ],
+    "mean_speed_kt": 7.706851421125906,
+    "median_speed_kt": 7.399816863437125,
+    "max_speed_kt": 17.830934218865202,
+    "p90_speed_kt": 12.468768628474084,
+    "pct_under_5kt": 25.04780114722753,
+    "pct_5_to_15kt": 71.89292543021033,
+    "pct_over_15kt": 3.0592734225621414,
+    "dominant_direction_deg": 5.306089515597261,
+    "direction_steadiness_R": 0.1873189204327188
+  }
+}
