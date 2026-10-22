@@ -26,3 +26,5 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+addopts = "-m 'not golden'"
+markers = ["golden: slow regression test that re-runs the GTYC/HYC study from cached data"]
