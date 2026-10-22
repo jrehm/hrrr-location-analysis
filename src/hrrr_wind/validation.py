@@ -116,12 +116,14 @@ class ValidationResults:
     scatter: dict = field(default_factory=dict)   # venue -> (racing-hour pairs, buoy id)
 
 
-def run_validation(study):
+def run_validation(study, progress=None):
     """Compare HRRR with each venue's buoy; return metrics, bias-adjusted stats, scatter data."""
     race = study.race_utc
     race_label = f"racing hrs ({study.race_start}-{study.race_end} UTC)"
     metric_rows, adj_rows, scatter = [], [], {}
-    for venue, b in study.buoys.items():
+    for k, (venue, b) in enumerate(study.buoys.items()):
+        if progress:
+            progress(k / len(study.buoys), f"validating {venue} against buoy {b.id}")
         obs = hourly_obs(load_ndbc(study.buoy_files(venue)))
         fac = height_factor(b.anem_m)
         fac_pow = height_factor(b.anem_m, method="power")

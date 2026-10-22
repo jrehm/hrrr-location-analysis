@@ -29,7 +29,6 @@ v1.2 changes (vs v1.1):
 Author: Claude (fork of HRRR_historical_data_retrieval_v1.0)
 """
 
-from herbie import Herbie, FastHerbie
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -236,6 +235,7 @@ def load_water_mask_inputs(ref_time, model, source, bbox):
     Fetch the LAND field for one reference time and return (mask, n_box, n_water).
     n_box counts all cells in the bbox, n_water counts the cells kept.
     """
+    from herbie import Herbie     # optional dependency (pip install ".[download]")
     H = Herbie(ref_time, model=model, product="sfc", fxx=0, source=source)
     ds = H.xarray(":LAND:surface:")
     ds = ds[0] if isinstance(ds, list) else ds
@@ -293,6 +293,7 @@ def extract_point_series(date_range, point_info, radius_nm, model, source,
         logger.info(f"=== Batch {batch_num + 1}/{len(batches)}: {len(batch_dates)} files ===")
 
         try:
+            from herbie import FastHerbie     # optional dependency
             FH = FastHerbie(
                 batch_dates.tolist(),
                 model=model,

@@ -44,12 +44,13 @@ h3 { font-size: 15px; margin: 18px 0 8px; }
 .controls { display: grid; gap: 12px; }
 label.f { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
 .row { display: flex; gap: 10px; align-items: center; }
-input[type=number], select { font: inherit; padding: 5px 8px; border: 1px solid var(--line);
+input[type=number], input[type=text], select { font: inherit; padding: 5px 8px; border: 1px solid var(--line);
   border-radius: 6px; background: var(--panel); color: var(--fg); width: 100%; }
 input[type=range] { width: 100%; accent-color: var(--accent); }
 button { font: inherit; padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px;
   background: var(--wash); color: var(--fg); cursor: pointer; }
-button:hover { border-color: var(--accent); }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .5; cursor: not-allowed; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .seg button { border: 0; border-radius: 0; background: var(--panel); }
 .seg button.on { background: var(--accent); color: #fff; }

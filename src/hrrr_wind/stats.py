@@ -197,14 +197,26 @@ def paired_comparison(race_a, race_b, a_name, b_name, rng, B):
     return pd.DataFrame(rows)
 
 
-def run_analysis(study):
-    """Full statistical analysis of every window in the study (racing hours, core + buffer)."""
+def run_analysis(study, progress=None):
+    """Full statistical analysis of every window in the study (racing hours, core + buffer).
+
+    ``progress(fraction, message)`` is an optional callback for a UI.
+    """
+    step = [0]
+    total = 2 * len(study.windows) + len(study.pairs)
+
+    def tick(msg):
+        if progress:
+            progress(step[0] / total, msg)
+        step[0] += 1
+
     rng = np.random.default_rng(study.seed)
     B = study.bootstrap_draws
     n_race = len(study.race_utc)
     rows, yearrows, quality = [], [], []
     res = AnalysisResults(None, None, None, None)
     for w in study.windows:
+        tick(f"statistics and confidence intervals: {w.venue} {w.season}")
         base = load_series(study, w.venue, w.cache_tag)
         for scope, a, b in (("core", w.lo, w.hi), ("buffer", None, None)):
             d = base if scope == "buffer" else base[(base["md"] >= a) & (base["md"] <= b)]
@@ -237,12 +249,14 @@ def run_analysis(study):
     res.quality = pd.DataFrame(quality)
 
     for p in study.pairs:
+        tick(f"paired comparison: {p.a} vs {p.b} ({p.season})")
         res.paired[(p.season, p.a, p.b)] = paired_comparison(
             res.series[(p.a, p.season)], res.series[(p.b, p.season)], p.a, p.b, rng, B)
 
     # Sample-point sensitivity band at the primary bearing (racing hours, core window)
     band = []
     for w in study.windows:
+        tick(f"sample-point sensitivity: {w.venue} {w.season}")
         for off in study.sens_offshore_nm:
             for rad in study.sens_radius_nm:
                 d = load_series(study, w.venue, w.cache_tag, offshore_nm=off, radius_nm=rad)

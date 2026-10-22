@@ -14,9 +14,11 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from hrrr_wind.cache import box_cells, load_cache
-from hrrr_wind.config import REPO_ROOT, load_study
+from hrrr_wind.config import STUDIES_DIR, load_study
+from hrrr_wind.jobs import JobConflict, JobError, JobManager
 from hrrr_wind.stats import load_series, summarize, windrose_table
 
 STATIC = Path(__file__).resolve().parents[1] / "web" / "static"
@@ -25,11 +27,21 @@ RESULT_FILES = {"summary": "summary_stats", "per_year": "per_year_stats",
                 "band": "sensitivity_band", "quality": "data_quality",
                 "validation": "validation_metrics", "adjusted": "bias_adjusted_summary"}
 
-app = FastAPI(title="HRRR Wind Analysis", version="0.1")
+app = FastAPI(title="HRRR Wind Analysis", version="0.2")
+MANAGER = JobManager()
+
+
+def is_readonly():
+    return os.environ.get("HRRR_WIND_READONLY") == "1"
+
+
+def require_writable():
+    if is_readonly():
+        raise HTTPException(403, "this server is read-only")
 
 
 def study_paths():
-    return {p.parent.name: p for p in sorted((REPO_ROOT / "studies").glob("*/study.toml"))}
+    return {p.parent.name: p for p in sorted(STUDIES_DIR.glob("*/study.toml"))}
 
 
 @lru_cache(maxsize=8)
@@ -67,13 +79,24 @@ def list_studies():
     return [{"id": sid, "name": get_study(sid).name} for sid in study_paths()]
 
 
+def list_caches(study):
+    """Wind caches present in the study's output folder, as {venue, tag, mb}."""
+    out = []
+    for p in sorted(study.out_dir.glob("cache_*.npz")) if study.out_dir.exists() else []:
+        for v in study.venues:
+            prefix = f"cache_{v}_"
+            if p.name.startswith(prefix):
+                out.append({"venue": v, "tag": p.stem[len(prefix):], "mb": round(p.stat().st_size / 1e6, 1)})
+    return out
+
+
 @app.get("/api/studies/{sid}")
 def study_meta(sid: str):
     s = get_study(sid)
     return {
         "id": sid, "name": s.name, "years": s.years, "race_label": s.race_label,
         "race_utc": [s.race_start, s.race_end], "utc_offset": s.utc_offset,
-        "tz_abbr": s.tz_abbr, "readonly": os.environ.get("HRRR_WIND_READONLY") == "1",
+        "tz_abbr": s.tz_abbr, "readonly": is_readonly(), "caches": list_caches(s),
         "venues": [{"key": v.key, "name": v.name, "lat": v.preset["lat"],
                     "lon": v.preset["lon"], "bearing": v.bearing,
                     "offshore_nm": v.offshore_nm, "radius_nm": v.radius_nm}
@@ -176,6 +199,55 @@ def get_file(sid: str, name: str):
     if Path(name).name != name or path.suffix not in DOWNLOAD_EXT or not path.is_file():
         raise HTTPException(404, "no such file")
     return FileResponse(path)
+
+
+class JobRequest(BaseModel):
+    kind: str
+    params: dict = {}
+
+
+@app.post("/api/studies/{sid}/jobs", status_code=202)
+def submit_job(sid: str, req: JobRequest):
+    """Start a download (kind=cache), or recompute the analysis or validation."""
+    require_writable()
+    study = get_study(sid)
+    try:
+        return MANAGER.submit(sid, study, study_paths()[sid], req.kind, req.params).public()
+    except JobError as e:
+        raise HTTPException(422, str(e))
+    except JobConflict as e:
+        raise HTTPException(409, str(e))
+
+
+@app.get("/api/studies/{sid}/jobs")
+def list_jobs(sid: str):
+    get_study(sid)
+    return [j.public() for j in MANAGER.list(sid)]
+
+
+def find_job(jid):
+    job = MANAGER.get(jid)
+    if not job:
+        raise HTTPException(404, "no such job")
+    return job
+
+
+@app.get("/api/jobs/{jid}")
+def job_status(jid: str):
+    return find_job(jid).public()
+
+
+@app.get("/api/jobs/{jid}/log")
+def job_log(jid: str, lines: int = Query(60, ge=1, le=500)):
+    find_job(jid)
+    return {"log": MANAGER.log_tail(jid, lines)}
+
+
+@app.post("/api/jobs/{jid}/cancel")
+def cancel_job(jid: str):
+    require_writable()
+    find_job(jid)
+    return MANAGER.cancel(jid).public()
 
 
 @app.get("/api/health")

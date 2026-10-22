@@ -21,11 +21,28 @@ from hrrr_wind.validation import run_validation
 logger = logging.getLogger("hrrr_wind.cli")
 
 
+def emit(args):
+    """Progress reporter: machine-readable lines when --progress-lines is set (used by the web app)."""
+    if not args.progress_lines:
+        return None
+
+    def report(frac, msg=""):
+        print(f"PROGRESS {min(max(frac, 0.0), 1.0):.4f} {msg}", flush=True)
+    return report
+
+
 def cmd_cache(study, args):
+    report = emit(args)
+    years = list(args.years)
+
+    def progress(year, chunk, n_chunks):
+        if report:
+            report((years.index(year) + chunk / n_chunks) / len(years),
+                   f"downloading {year}, part {chunk + 1} of {n_chunks}")
     try:
         build_cache(study.out_dir, args.venues, args.years, args.tag, args.start, args.end,
                     start_hour=args.start_hour, end_hour=args.end_hour,
-                    max_rss_gb=args.max_rss_gb, chunk_hours=args.chunk_hours)
+                    max_rss_gb=args.max_rss_gb, chunk_hours=args.chunk_hours, progress=progress)
     except MemoryLimitExceeded as e:
         raise SystemExit(str(e))
 
@@ -40,7 +57,7 @@ def cmd_sensitivity(study, args):
 
 
 def cmd_analyze(study, args):
-    res = run_analysis(study)
+    res = run_analysis(study, progress=emit(args))
     outputs.write_analysis(study, res)
     pd.set_option("display.width", 220, "display.max_columns", 40)
     print(res.summary[["venue", "season", "scope", "n", "mean", "mean_lo", "mean_hi", "median",
@@ -53,7 +70,7 @@ def cmd_analyze(study, args):
 
 
 def cmd_validate(study, args):
-    val = run_validation(study)
+    val = run_validation(study, progress=emit(args))
     outputs.write_validation(study, val)
     m, a = val.metrics, val.adjusted
     pd.set_option("display.width", 250, "display.max_columns", 40)
@@ -74,6 +91,8 @@ def main(argv=None):
     matplotlib.use("Agg")
     ap = argparse.ArgumentParser()
     ap.add_argument("--study", help="path to study.toml (default: the GTYC/HYC study)")
+    ap.add_argument("--progress-lines", action="store_true",
+                    help="print PROGRESS <fraction> <message> lines (for the web app)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     for name in ("cache", "sensitivity", "analyze", "validate"):
         sp = sub.add_parser(name)
