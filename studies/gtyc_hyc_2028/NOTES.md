@@ -4,7 +4,7 @@
 
 **Session date:** 2026-10-19 (revised 2026-10-20) · **Location:** `studies/gtyc_hyc_2028/` in the `hrrr-location-analysis` repo
 
-> **Moved 2026-10-22.** This work was consolidated from `~/Claude/club_climatology` and `~/Claude/output/venue_gtyc_hyc` into this repo. Code now lives in `src/hrrr_wind/` (`climatology.py` = v1.2, `venue_analysis.py`, `report_html.py`), tests in `tests/`, outputs and wind caches in `outputs/`, buoy files in `data/buoys/`, the slide in `slides/`. File names below use the old names; mapping: `HRRR_club_wind_climatology_v1.2.py` -> `climatology.py`, `venue_analysis_gtyc_hyc.py` -> `venue_analysis.py`, `build_report_html.py` -> `report_html.py`, `test_climatology_v12.py` -> `tests/test_climatology.py`. Checkpoint folders, logs and superseded outputs were not carried over (they are in `~/Claude/output/venue_gtyc_hyc/`). A rerun from this repo reproduced every CSV byte-for-byte.
+> **Moved 2026-10-22.** This work was consolidated from `~/Claude/club_climatology` and `~/Claude/output/venue_gtyc_hyc` into this repo. Code now lives in `src/hrrr_wind/` (`climatology.py` = v1.2, `venue_analysis.py`, `report_html.py`), tests in `tests/`, outputs and wind caches in `outputs/`, buoy files in `data/buoys/`, the slide in `slides/`. File names below use the old names; mapping: `HRRR_club_wind_climatology_v1.2.py` -> `climatology.py`, `venue_analysis_gtyc_hyc.py` -> `venue_analysis.py`, `build_report_html.py` -> `build_report.py` (in this folder), `test_climatology_v12.py` -> `tests/test_climatology.py`. On 2026-10-22 the driver was split into `config.py` (reads `study.toml`), `cache.py`, `stats.py`, `validation.py`, `plots.py`, `outputs.py`; `venue_analysis.py` is now a thin CLI. Study parameters (`PRIMARY`, `WINDOWS`, `BUOYS`) live in `study.toml`. Checkpoint folders, logs and superseded outputs were not carried over (they are in `~/Claude/output/venue_gtyc_hyc/`). A rerun from this repo reproduced every CSV byte-for-byte.
 **Published report:** https://claude.ai/artifact/Ty4gwWbw1Am3bfnePk9JHt (private; shared only from the page's Share menu)
 
 ---
@@ -136,10 +136,10 @@ python -W ignore -m hrrr_wind.venue_analysis cache --venues gtyc --years 2016 20
 # Analysis from the committed caches (fast; no network)
 python -W ignore -m hrrr_wind.venue_analysis analyze
 python -W ignore -m hrrr_wind.venue_analysis validate
-python -W ignore -m hrrr_wind.report_html
+python studies/gtyc_hyc_2028/build_report.py
 python -m pytest -q
 ```
-To change a sample point, edit `PRIMARY` in `src/hrrr_wind/venue_analysis.py` (and the preset in `climatology.py`) and re-run `analyze`, `validate`, `report_html`; no re-download is needed as long as the point is inside the ±18 nm cache box.
+To change a sample point, edit the venue's `bearing`/`offshore_nm` in `study.toml` (and the preset in `climatology.py`) and re-run `analyze`, `validate`, `build_report.py`; no re-download is needed as long as the point is inside the ±18 nm cache box.
 
 **Environment:** `python3` is 3.14 (the shell aliases `python`), herbie-data 2025.11.3, xarray 2025.11.0, pandas 2.3.3, cfgrib and pytest present. HRRR data from AWS (`noaa-hrrr-bdp-pds`); HRRR archive starts 2014-09-30.
 
