@@ -10,6 +10,7 @@ Python tool + studies for HRRR wind climatology at sailing venues (see README.md
 ## Verification (Python project: ignore any npm rules from a parent CLAUDE.md)
 - `python -m pytest -q` and `python -m py_compile src/hrrr_wind/*.py`
 - Web UI: run `python -m hrrr_wind.api` and check every page in a browser (headless Chrome screenshots work; htm treats a literal `< 5` in a template as a tag, write it as `${"<"} 5`)
+- Jobs: downloads/recomputes run as subprocesses (`jobs.py`); never let a request overwrite an existing cache; `HRRR_WIND_READONLY=1` must keep every write endpoint at 403
 - Regression: `python -m pytest -m golden` (about 3 min) must pass after any change to stats/validation/cache code
 
 ## Rules learned the hard way

@@ -30,3 +30,6 @@ studies/**/superseded_*/
 *.egg-info/
 build/
 dist/
+
+# Web-app job logs
+studies/**/jobs/

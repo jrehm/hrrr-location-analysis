@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import numpy as np
+import pytest
 import pandas as pd
 
 from hrrr_wind import climatology as clim
@@ -25,6 +26,7 @@ def test_bbox_order_and_size():
 
 
 def test_water_box_mask_excludes_land_and_outside():
+    pytest.importorskip("xarray")   # optional dependency (pip install ".[download]")
     import xarray as xr
     lat = np.array([[43.0, 43.0, 43.0], [43.05, 43.05, 43.05]])
     lon = np.array([[-83.1, -83.0, -82.9]] * 2) % 360  # 0..360 like cfgrib

@@ -71,8 +71,8 @@ def build_cache(out_dir, venues, years, tag, start, end, start_hour=0, end_hour=
     from herbie import Herbie
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    start = datetime.strptime(start, "%m-%d").replace(year=2000)
-    end = datetime.strptime(end, "%m-%d").replace(year=2000, hour=23)
+    start_dt = datetime.strptime(f"2000-{start}", "%Y-%m-%d")
+    end_dt = datetime.strptime(f"2000-{end}", "%Y-%m-%d").replace(hour=23)
 
     # Static grid + land mask from one reference file
     ref = Herbie(f"{years[-1]}-{start} 16:00", model="hrrr", product="sfc", fxx=0,
@@ -99,7 +99,7 @@ def build_cache(out_dir, venues, years, tag, start, end, start_hour=0, end_hour=
             missing_by_year[year] = list(z["missing"])
             logger.info(f"year {year}: loaded checkpoint ({len(missing_by_year[year])} missing)")
             continue
-        ranges = clim.build_date_ranges(start, end, [year], "1h", start_hour,
+        ranges = clim.build_date_ranges(start_dt, end_dt, [year], "1h", start_hour,
                                         end_hour, min_date=clim.HRRR_START_DATE)
         if not ranges:
             logger.warning(f"year {year}: window precedes HRRR archive, skipped")

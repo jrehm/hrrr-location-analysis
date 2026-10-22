@@ -5,17 +5,16 @@ description = "HRRR wind climatology for sailing venues: extraction, validation 
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "herbie-data",
     "numpy",
     "pandas",
     "matplotlib",
-    "xarray",
-    "cfgrib",
     "fastapi",
     "uvicorn",
 ]
 
 [project.optional-dependencies]
+# Needed only to download new HRRR data (not to view or analyze cached studies)
+download = ["herbie-data", "xarray", "cfgrib"]
 dev = ["pytest", "httpx"]
 
 [build-system]

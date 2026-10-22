@@ -14,7 +14,9 @@ from hrrr_wind import climatology as clim
 KT = 1.9438445                 # knots per m/s
 CACHE_HALF_WIDTH_NM = 18.0     # half-width of the gridded cache around each club
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_STUDY = REPO_ROOT / "studies" / "gtyc_hyc_2028" / "study.toml"
+# Folder holding one sub-folder per study (each with a study.toml). Override for installed/containerized use.
+STUDIES_DIR = Path(os.environ.get("HRRR_WIND_STUDIES", REPO_ROOT / "studies"))
+DEFAULT_STUDY = STUDIES_DIR / "gtyc_hyc_2028" / "study.toml"
 
 
 @dataclass(frozen=True)

@@ -42,7 +42,8 @@ bias-adjusted range.
 git clone https://github.com/jrehm/hrrr-location-analysis.git
 cd hrrr-location-analysis
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"      # or: pip install -r requirements.txt && export PYTHONPATH=src
+pip install -e ".[download,dev]"   # [download] adds herbie/xarray/cfgrib, needed only to fetch new HRRR data
+# or: pip install -r requirements.txt && export PYTHONPATH=src
 python -m pytest -q
 ```
 
@@ -105,7 +106,15 @@ python -m hrrr_wind.api            # then open http://127.0.0.1:8000/
 
 Pages: **Sample point** (satellite map with the club, bearing line, sample point and the HRRR water/land cells being averaged, plus instant racing-hour stats for any bearing, distance and box size), **Results** (wind roses, year by year, time of day), **Compare** (paired difference with confidence intervals; sensitivity to the sample point), **Validation** (HRRR vs buoys; bias-adjusted range) and **Files** (downloads, data completeness).
 
-It is a read-only view of a study's committed results and caches (`studies/*/study.toml` are discovered automatically). `HRRR_WIND_READONLY=1` marks a hosted demo. Downloading new venues and recomputing from the browser are the next step.
+Studies in `studies/*/study.toml` are discovered automatically (`HRRR_WIND_STUDIES` points at a different folder).
+
+**Jobs page (local mode only).** Download hourly wind for a new window (venues, years, MM-DD range, tag) with a live size estimate, or recompute the analysis and validation from the caches on disk. Jobs run in a separate process with a memory cap, show progress, can be cancelled, and a restarted download resumes from per-year checkpoints. Existing caches are never overwritten (a new tag is required), one job runs at a time, and results pages refresh when a job finishes. Needs `pip install -e ".[download]"`.
+
+**Hosted demo.** `HRRR_WIND_READONLY=1` hides the Jobs page and makes every write endpoint return 403, so the app only serves a study's committed results and caches. It needs no HRRR libraries (`pip install .`). A `Dockerfile` builds this read-only image:
+
+```bash
+docker build -t hrrr-wind-demo . && docker run -p 8000:8000 hrrr-wind-demo
+```
 
 Design notes: FastAPI serves JSON only (`/api/...`, see `/docs` for the generated reference); the UI is Preact + htm served as static files with no build step, and the libraries (Preact, Leaflet, Chart.js) are vendored in `src/hrrr_wind/web/static/vendor/`. Map tiles load from Esri and OpenStreetMap, so the map needs internet. Because the API is pure JSON and each page is a small component in `static/js/`, moving to React later is a mechanical port of the view layer.
 

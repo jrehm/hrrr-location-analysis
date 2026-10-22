@@ -3,7 +3,7 @@ import { api } from "./api.js";
 import { html, Rose, Table, ChartCanvas, chartDefaults, binColors } from "./components.js";
 import { fmt, label, pct, range, seriesColor } from "./util.js";
 
-export function useStudyData(meta) {
+export function useStudyData(meta, version = 0) {
   const [d, setD] = useState(null), [err, setErr] = useState(null);
   useEffect(() => {
     if (!meta) return;
@@ -12,7 +12,7 @@ export function useStudyData(meta) {
       api(`studies/${id}/results`), api(`studies/${id}/diurnal`),
       ...meta.windows.map((w) => api(`studies/${id}/windrose`, { venue: w.venue, season: w.season })),
     ]).then(([results, diurnal, ...roses]) => setD({ results, diurnal, roses })).catch((e) => setErr(e.message));
-  }, [meta?.id]);
+  }, [meta?.id, version]);
   return { d, err };
 }
 

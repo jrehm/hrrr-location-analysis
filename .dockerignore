@@ -1,0 +1,10 @@
+.git
+.claude
+.venv
+__pycache__
+*.pyc
+studies/**/ckpt_*
+studies/**/jobs
+studies/**/superseded_*
+legacy
+tests
