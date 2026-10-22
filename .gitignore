@@ -22,3 +22,11 @@ Venue_Wind_Analysis_2028_Proposal.html
 # Editor
 .vscode/
 *.swp
+
+# Long-run extraction scratch (per-year checkpoints, logs); the final caches are kept
+studies/**/ckpt_*/
+studies/**/*.log
+studies/**/superseded_*/
+*.egg-info/
+build/
+dist/
