@@ -56,6 +56,29 @@ def summarize(spd, direction):
     }
 
 
+SECTOR_NAMES = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+                "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+SPEED_BIN_EDGES = [0, 5, 10, 15, 20, np.inf]
+SPEED_BIN_NAMES = ["0-5", "5-10", "10-15", "15-20", "20+"]
+
+
+def windrose_table(spd, direction):
+    """16-sector wind rose: % of all hours per (speed bin, sector), plus the speed distribution.
+
+    ``values[b][s]`` is the percent of hours in speed bin b and direction sector s (sector 0
+    is centered on north; direction is where the wind blows FROM).
+    """
+    spd = np.asarray(spd, dtype=float)
+    sector = (((np.asarray(direction, dtype=float) + 11.25) % 360) // 22.5).astype(int) % 16
+    b = np.clip(np.digitize(spd, SPEED_BIN_EDGES[1:-1], right=False), 0, 4)
+    n = len(spd)
+    values = np.zeros((5, 16))
+    np.add.at(values, (b, sector), 1)
+    values = 100 * values / n
+    return {"sectors": SECTOR_NAMES, "bins": SPEED_BIN_NAMES, "values": values.tolist(),
+            "distribution": values.sum(axis=1).tolist(), "n": n}
+
+
 def usable_day_share(df, race_hours, min_run=3):
     """Share of days with >= min_run consecutive racing hours in 5-15 kt.
 
