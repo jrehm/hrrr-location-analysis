@@ -91,8 +91,9 @@ def build_slide(study, venue, season, out_path):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
 
     textbox(slide, "Title", window_title(study, venue, season, window), 0.6, 0.35, 12.1, 0.7, 32, bold=True)
+    race_text = re.sub(r"(\d)(AM|PM)", r"\1 \2", study.race_label).replace("-", "–")   # "10 AM–4 PM EDT"
     textbox(slide, "Subtitle",
-            f"HRRR 10 m wind, racing hours {re.sub(r'(\d)(AM|PM)', r'\1 \2', study.race_label).replace('-', '–')}, n = {rose['n']} hours. "
+            f"HRRR 10 m wind, racing hours {race_text}, n = {rose['n']} hours. "
             f"Sample point {v.offshore_nm:g} nm out at bearing {v.bearing:g}° from the club",
             0.6, 1.05, 12.1, 0.4, 16, color=MUTED)
 
