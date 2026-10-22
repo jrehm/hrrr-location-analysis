@@ -20,6 +20,7 @@ from hrrr_wind.config import cache_plan, FIRST_YEAR, MAX_WINDOW_DAYS, MAX_YEARS 
 KINDS = ("cache", "analyze", "validate", "run_study")
 TAG_RE = re.compile(r"^[A-Za-z0-9_]{1,40}$")
 FILES_PER_SECOND = 1.9                 # observed download rate, used only for the estimate
+STALL_SECONDS = 600                    # no output this long = hung connection: stop the job so it can resume
 MIN_RSS_GB, MAX_RSS_GB, DEFAULT_RSS_GB = 1.0, 8.0, 4.0
 
 
@@ -45,6 +46,8 @@ class Job:
     finished: float | None = None
     returncode: int | None = None
     log_path: Path | None = None
+    last_output: float = field(default_factory=time.time)
+    stalled: bool = False
 
     def public(self):
         return {"id": self.id, "study_id": self.study_id, "kind": self.kind, "params": self.params,
@@ -182,8 +185,11 @@ class JobManager:
             job.status, job.message, job.finished = "failed", str(e), time.time()
             return
         self._procs[job.id] = proc
+        job.last_output = time.time()
+        threading.Thread(target=self._watch, args=(job, proc), daemon=True).start()
         with open(job.log_path, "w") as log:
             for line in proc.stdout:
+                job.last_output = time.time()
                 log.write(line)
                 log.flush()
                 if line.startswith("PROGRESS "):
@@ -197,8 +203,20 @@ class JobManager:
         job.finished = time.time()
         if job.status != "cancelled":
             job.status = "done" if job.returncode == 0 else "failed"
-            if job.status == "done":
+            if job.stalled:
+                job.message = "stalled (no network activity); press Try again to resume"
+            elif job.status == "done":
                 job.progress, job.message = 1.0, "finished"
             else:
                 job.message = (self.log_tail(job.id, 3).strip().splitlines() or ["failed"])[-1][:200]
         self._procs.pop(job.id, None)
+
+    def _watch(self, job, proc, stall=None, poll=5):
+        """Stop a job that has printed nothing for ``stall`` seconds (a hung connection)."""
+        stall = STALL_SECONDS if stall is None else stall
+        while proc.poll() is None:
+            time.sleep(poll)
+            if proc.poll() is None and time.time() - job.last_output > stall:
+                job.stalled = True
+                proc.terminate()
+                return

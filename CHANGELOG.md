@@ -8,6 +8,12 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-22
+### Fixed
+- Downloads no longer hang on a dropped connection: network calls time out (45 s), chunks are retried,
+  and a year hit by download errors is not saved (a rerun resumes) instead of being stored with gaps.
+- A job that prints nothing for 10 minutes is stopped and shown as failed with a "Try again" hint.
+
 ## [1.3.0] - 2026-10-22
 ### Added
 - New study / add venue from the web app: click the club on the map, set windows and years, and a
@@ -36,4 +42,5 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 ## [1.1.0] and [1.0.0]
 - Single-club climatology CLI and the GTYC vs HYC 2028 study (frozen under `legacy/`).
 
-[Unreleased]: https://github.com/jrehm/hrrr-location-analysis/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/jrehm/hrrr-location-analysis/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/jrehm/hrrr-location-analysis/compare/v1.3.0...v1.3.1

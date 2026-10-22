@@ -6,6 +6,7 @@ works from the ``cache_<venue>_<tag>.npz`` files it writes.
 import gc
 import logging
 import math
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -33,6 +34,29 @@ def current_rss_gb():
 
 class MemoryLimitExceeded(RuntimeError):
     """Raised when a download exceeds its resident-memory cap (checkpoints survive)."""
+
+
+NET_TIMEOUT_S = 45            # no socket may wait longer than this (a dead link must not hang a run)
+CHUNK_ATTEMPTS = 3            # tries per chunk before the failure counts as a network problem
+RETRY_PAUSE_S = (5, 20)       # pauses between those tries
+
+
+class NetworkTrouble(RuntimeError):
+    """Downloads kept failing with errors (not just absent files); nothing was saved for the year."""
+
+
+def fetch_with_retry(dates, source, attempts=CHUNK_ATTEMPTS, pause=None):
+    """fetch_wind with a few retries on exceptions. Returns (result, failed): result None with
+    failed False means the files are absent from the archive; failed True means errors (network)."""
+    pause = RETRY_PAUSE_S if pause is None else pause
+    for i in range(attempts):
+        try:
+            return fetch_wind(dates, source), False
+        except Exception as e:
+            logger.error(f"fetch {len(dates)} hours from {source} failed (try {i + 1}/{attempts}): {e}")
+            if i + 1 < attempts:
+                time.sleep(pause[min(i, len(pause) - 1)])
+    return None, True
 
 
 def check_memory(limit_gb, where):
@@ -69,7 +93,9 @@ def build_cache(out_dir, venues, years, tag, start, end, start_hour=0, end_hour=
     key -> (lat, lon); venues not in it use the built-in presets.
     """
     import json
+    import socket
     from herbie import Herbie
+    socket.setdefaulttimeout(NET_TIMEOUT_S)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     start_dt = datetime.strptime(f"2000-{start}", "%Y-%m-%d")
@@ -126,16 +152,14 @@ def build_cache(out_dir, venues, years, tag, start, end, start_hour=0, end_hour=
                                              copy=True).reshape(n, ys.stop - ys.start, -1))
 
         got = set()
+        net_errors = 0
         n_chunks = -(-len(dr) // chunk_hours)
         for i in range(0, len(dr), chunk_hours):
             if progress:
                 progress(year, i // chunk_hours, n_chunks)
             chunk = dr[i:i + chunk_hours]
-            try:
-                res = fetch_wind(chunk.tolist(), "aws")
-            except Exception as e:
-                logger.error(f"year {year} chunk {i}: {e}")
-                continue
+            res, failed = fetch_with_retry(chunk.tolist(), "aws")
+            net_errors += failed
             if res is None:
                 continue
             vt, u, v = res
@@ -144,14 +168,15 @@ def build_cache(out_dir, venues, years, tag, start, end, start_hour=0, end_hour=
             del res, vt, u, v
             gc.collect()
             check_memory(max_rss_gb, f"year {year} chunk {i}")
+        if net_errors:                  # don't grind through per-hour retries on a dead link
+            raise NetworkTrouble(f"year {year}: {net_errors} chunk(s) failed after {CHUNK_ATTEMPTS} tries, "
+                                 f"not saved; check the connection and run again (finished years are kept)")
         miss = [t for t in dr if t not in got]
         # Retry missing timestamps one by one on alternate sources
         for t in list(miss):
             for src in ("aws", "google", "azure"):
-                try:
-                    res = fetch_wind([t], src)
-                except Exception:
-                    res = None
+                res, failed = fetch_with_retry([t], src, attempts=1)
+                net_errors += failed
                 if res is not None:
                     keep(*res)
                     got |= set(res[0])
@@ -161,6 +186,9 @@ def build_cache(out_dir, venues, years, tag, start, end, start_hour=0, end_hour=
                     break
             gc.collect()
             check_memory(max_rss_gb, f"year {year} retry {t}")
+        if net_errors:
+            raise NetworkTrouble(f"year {year}: {net_errors} download error(s), not saved; "
+                                 f"check the connection and run again (finished years are kept)")
         missing_by_year[year] = [t.isoformat() for t in miss]
 
         payload = {"missing": np.array(missing_by_year[year], dtype=object)}

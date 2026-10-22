@@ -104,3 +104,14 @@ def test_run_study_command_uses_the_run_subcommand():
     from hrrr_wind.jobs import build_command
     cmd = build_command("s.toml", "run_study", {"max_rss_gb": 4.0})
     assert cmd[cmd.index("--study") + 2:] == ["run", "--max-rss-gb", "4.0"]
+
+
+def test_silent_hung_job_is_stopped_and_can_resume(api, monkeypatch):
+    client, _, _ = api
+    orig = jobs.JobManager._watch
+    monkeypatch.setattr(jobs.JobManager, "_watch", lambda self, job, proc: orig(self, job, proc, 0.3, 0.05))
+    mgr = jobs.JobManager(command_builder=fake("import time; print('PROGRESS 0.2 x', flush=True); time.sleep(60)"))
+    monkeypatch.setattr(appmod, "MANAGER", mgr)
+    jid = client.post(f"/api/studies/{SID}/jobs", json={"kind": "analyze"}).json()["id"]
+    j = wait(client, jid, ("failed",), timeout=10)
+    assert "stalled" in j["message"] and "Try again" in j["message"]

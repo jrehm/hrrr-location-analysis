@@ -51,3 +51,48 @@ def test_memory_cap_aborts_cleanly(monkeypatch):
     monkeypatch.setattr(cachemod, "current_rss_gb", lambda: 9.0)
     with pytest.raises(cachemod.MemoryLimitExceeded):
         cachemod.check_memory(4.0, "unit test")
+
+
+@pytest.fixture(autouse=True)
+def _restore_socket_timeout():
+    import socket
+    before = socket.getdefaulttimeout()
+    yield
+    socket.setdefaulttimeout(before)
+
+
+def test_transient_errors_are_retried(monkeypatch):
+    calls = []
+
+    def flaky(dates, source, max_threads=50):
+        calls.append(1)
+        if len(calls) < 3:
+            raise OSError("connection reset")
+        return fake_fetch(dates, source)
+
+    monkeypatch.setattr(cachemod, "fetch_wind", flaky)
+    res, failed = cachemod.fetch_with_retry(pd.date_range("2020-09-08", periods=2, freq="h").tolist(),
+                                            "aws", pause=(0,))
+    assert res is not None and not failed and len(calls) == 3
+
+
+def test_absent_files_are_not_a_network_error(monkeypatch):
+    monkeypatch.setattr(cachemod, "fetch_wind", lambda *a, **k: None)
+    assert cachemod.fetch_with_retry([pd.Timestamp("2020-09-08")], "aws") == (None, False)
+
+
+def test_network_outage_saves_nothing_for_the_year(tmp_path, monkeypatch):
+    def down(dates, source, max_threads=50):
+        raise OSError("network is down")
+
+    monkeypatch.setitem(sys.modules, "herbie", types.SimpleNamespace(Herbie=FakeHerbie))
+    monkeypatch.setattr(cachemod, "fetch_wind", down)
+    monkeypatch.setattr(cachemod, "RETRY_PAUSE_S", (0,))
+    with pytest.raises(cachemod.NetworkTrouble):
+        cachemod.build_cache(tmp_path, ["hyc"], [2020], "t", "09-08", "09-09", chunk_hours=24)
+    assert not (tmp_path / "ckpt_t" / "year_2020.npz").exists()
+    assert not (tmp_path / "cache_hyc_t.npz").exists()
+    # the link comes back: a rerun completes normally
+    monkeypatch.setattr(cachemod, "fetch_wind", fake_fetch)
+    cachemod.build_cache(tmp_path, ["hyc"], [2020], "t", "09-08", "09-09", chunk_hours=24)
+    assert len(cachemod.load_cache(tmp_path, "hyc", "t")["time"]) == 48
