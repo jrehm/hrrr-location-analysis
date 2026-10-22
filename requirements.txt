@@ -1,0 +1,7 @@
+herbie-data
+numpy
+pandas
+matplotlib
+xarray
+cfgrib
+pytest

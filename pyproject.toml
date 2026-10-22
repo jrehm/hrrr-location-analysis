@@ -1,0 +1,28 @@
+[project]
+name = "hrrr-wind"
+version = "1.2.0"
+description = "HRRR wind climatology for sailing venues: extraction, validation against NDBC buoys, and venue comparison"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "herbie-data",
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "xarray",
+    "cfgrib",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
