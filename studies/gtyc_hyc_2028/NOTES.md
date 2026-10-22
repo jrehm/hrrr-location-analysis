@@ -4,7 +4,7 @@
 
 **Session date:** 2026-10-19 (revised 2026-10-20) · **Location:** `studies/gtyc_hyc_2028/` in the `hrrr-location-analysis` repo
 
-> **Moved 2026-10-22.** This work was consolidated from `~/Claude/club_climatology` and `~/Claude/output/venue_gtyc_hyc` into this repo. Code now lives in `src/hrrr_wind/` (`climatology.py` = v1.2, `venue_analysis.py`, `report_html.py`), tests in `tests/`, outputs and wind caches in `outputs/`, buoy files in `data/buoys/`, the slide in `slides/`. File names below use the old names; mapping: `HRRR_club_wind_climatology_v1.2.py` -> `climatology.py`, `venue_analysis_gtyc_hyc.py` -> `venue_analysis.py`, `build_report_html.py` -> `build_report.py` (in this folder), `test_climatology_v12.py` -> `tests/test_climatology.py`. On 2026-10-22 the driver was split into `config.py` (reads `study.toml`), `cache.py`, `stats.py`, `validation.py`, `plots.py`, `outputs.py`; `venue_analysis.py` is now a thin CLI. Study parameters (`PRIMARY`, `WINDOWS`, `BUOYS`) live in `study.toml`. Checkpoint folders, logs and superseded outputs were not carried over (they are in `~/Claude/output/venue_gtyc_hyc/`). A rerun from this repo reproduced every CSV byte-for-byte.
+> **Moved 2026-10-22.** This work was consolidated from `~/Claude/club_climatology` and `~/Claude/output/venue_gtyc_hyc` into this repo. Code now lives in `src/hrrr_wind/` (`climatology.py` = v1.2, plus the modules listed below), tests in `tests/`, outputs and wind caches in `outputs/`, buoy files in `data/buoys/`, the slide in `slides/`. File names below use the old names; mapping: `HRRR_club_wind_climatology_v1.2.py` -> `climatology.py`, `venue_analysis_gtyc_hyc.py` -> `venue_analysis.py`, `build_report_html.py` -> `build_report.py` (in this folder), `test_climatology_v12.py` -> `tests/test_climatology.py`. On 2026-10-22 the driver was split into `config.py` (reads `study.toml`), `cache.py`, `stats.py`, `validation.py`, `plots.py`, `outputs.py`; `venue_analysis.py` is now a thin CLI. Study parameters (`PRIMARY`, `WINDOWS`, `BUOYS`) live in `study.toml`. Checkpoint folders, logs and superseded outputs were not carried over (they are in `~/Claude/output/venue_gtyc_hyc/`). A rerun from this repo reproduced every CSV byte-for-byte.
 **Published report:** https://claude.ai/artifact/Ty4gwWbw1Am3bfnePk9JHt (private; shared only from the page's Share menu)
 
 ---
@@ -146,7 +146,7 @@ To change a sample point, edit the venue's `bearing`/`offshore_nm` in `study.tom
 ---
 
 ## 5. Deliverables for readers
-1. **Artifact (interactive, private):** https://claude.ai/artifact/Ty4gwWbw1Am3bfnePk9JHt. Update by republishing `Venue_Wind_Report_artifact.html` (same path keeps the URL), after re-running `build_report_html.py`.
+1. **Artifact (interactive, private):** https://claude.ai/artifact/Ty4gwWbw1Am3bfnePk9JHt. Update by republishing `Venue_Wind_Report_artifact.html` (same path keeps the URL), after re-running `build_report.py`.
 2. **HTML file:** `Venue_Wind_Report_GTYC_HYC.html` (self-contained, opens offline).
 3. **Markdown report:** `Venue_Wind_Analysis_GTYC_HYC.md`. This was written by hand from the CSVs; if the analysis is re-run, the HTML regenerates automatically but the markdown does **not**, so check its numbers.
 
