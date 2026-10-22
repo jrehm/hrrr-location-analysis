@@ -210,6 +210,22 @@ def box_series(cache, lat_c, lon_c, radius_nm, water_only=True, nearest_only=Fal
                          "dir": (np.degrees(np.arctan2(-u, -v))) % 360}), n
 
 
+def box_cells(cache, lat_c, lon_c, radius_nm, context_nm=3.0):
+    """Grid cells near a sample point, for drawing on a map.
+
+    Returns dicts {lat, lon, water, in_box}: every cell within radius+context_nm, flagged
+    ``in_box`` when inside the averaging box and ``water`` from the land mask.
+    """
+    lat, lon, land = cache["lat"], cache["lon"], cache["land"]
+    dy = (lat - lat_c) * 60.0
+    dx = (lon - lon_c) * 60.0 * math.cos(math.radians(lat_c))
+    reach = radius_nm + context_nm
+    near = (np.abs(dx) <= reach) & (np.abs(dy) <= reach)
+    in_box = (np.abs(dx) <= radius_nm) & (np.abs(dy) <= radius_nm)
+    return [{"lat": float(lat[i, j]), "lon": float(lon[i, j]), "water": bool(land[i, j] < 0.5),
+             "in_box": bool(in_box[i, j])} for i, j in zip(*np.where(near))]
+
+
 def load_cache(out_dir, venue, tag):
     """Load cache_<venue>_<tag>.npz as a dict of arrays (time, u, v, lat, lon, land)."""
     return dict(np.load(Path(out_dir) / f"cache_{venue}_{tag}.npz"))

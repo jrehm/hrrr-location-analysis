@@ -97,6 +97,18 @@ trusting results. To add a club, add an entry to `YACHT_CLUB_PRESETS` in
 
 ---
 
+## Web app
+
+```bash
+python -m hrrr_wind.api            # then open http://127.0.0.1:8000/
+```
+
+Pages: **Sample point** (satellite map with the club, bearing line, sample point and the HRRR water/land cells being averaged, plus instant racing-hour stats for any bearing, distance and box size), **Results** (wind roses, year by year, time of day), **Compare** (paired difference with confidence intervals; sensitivity to the sample point), **Validation** (HRRR vs buoys; bias-adjusted range) and **Files** (downloads, data completeness).
+
+It is a read-only view of a study's committed results and caches (`studies/*/study.toml` are discovered automatically). `HRRR_WIND_READONLY=1` marks a hosted demo. Downloading new venues and recomputing from the browser are the next step.
+
+Design notes: FastAPI serves JSON only (`/api/...`, see `/docs` for the generated reference); the UI is Preact + htm served as static files with no build step, and the libraries (Preact, Leaflet, Chart.js) are vendored in `src/hrrr_wind/web/static/vendor/`. Map tiles load from Esri and OpenStreetMap, so the map needs internet. Because the API is pure JSON and each page is a small component in `static/js/`, moving to React later is a mechanical port of the view layer.
+
 ## Full study workflow (what `studies/gtyc_hyc_2028/` used)
 
 ```bash
@@ -145,7 +157,7 @@ See `studies/gtyc_hyc_2028/NOTES.md` for the decisions, bugs, and lessons from t
 ## Repository layout
 
 ```
-src/hrrr_wind/         library (see below)
+src/hrrr_wind/         library (see below); api/ (FastAPI) and web/static/ (UI)
 tests/                 pytest unit tests + a slow golden-file regression (`pytest -m golden`)
 studies/gtyc_hyc_2028/ GTYC vs HYC: study.toml, NOTES.md, build_report.py, outputs/, data/buoys/, slides/
 legacy/                v1.0 and v1.1 scripts; nine_venue_2028/ (superseded first screening and its outputs)
@@ -163,6 +175,7 @@ legacy/                v1.0 and v1.1 scripts; nine_venue_2028/ (superseded first
 | `plots.py` | Figures (return matplotlib `Figure` objects) |
 | `outputs.py` | Writes results to CSV/PNG |
 | `venue_analysis.py` | Thin command-line wrapper over the above (`--study path/to/study.toml`) |
+| `api/app.py` | FastAPI JSON API over a study's results and caches; also serves the web UI |
 
 A new study is a folder with a `study.toml` (copy `studies/gtyc_hyc_2028/study.toml`); no code changes needed.
 `pytest -m golden` re-runs the whole GTYC/HYC study from the committed caches and checks every CSV (about 3 minutes).
