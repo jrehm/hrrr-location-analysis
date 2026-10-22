@@ -9,7 +9,9 @@ client = TestClient(app)
 
 
 def test_study_listing_and_meta():
-    assert {"id": SID, "name": "GTYC vs HYC, 2028 regatta"} in client.get("/api/studies").json()
+    listed = {x["id"]: x for x in client.get("/api/studies").json()}
+    assert listed[SID]["name"] == "GTYC vs HYC, 2028 regatta" and listed[SID]["state"] == "ready"
+    assert listed[SID]["years"] == [2015, 2025] and listed[SID]["locked"]
     m = client.get(f"/api/studies/{SID}").json()
     assert m["race_label"] == "10AM-4PM EDT" and [v["key"] for v in m["venues"]] == ["gtyc", "hyc"]
     assert client.get("/api/studies/nope").status_code == 404

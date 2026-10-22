@@ -9,3 +9,11 @@ export const seriesColor = (i) => cssVar(SERIES_VARS[i % SERIES_VARS.length]);
 export const debounce = (fn, ms) => {
   let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 };
+// [2015, 2016, 2018] -> "2015–2016, 2018"
+export const yearRanges = (ys) => {
+  const out = []; let i = 0; const a = [...ys].sort((x, y) => x - y);
+  while (i < a.length) { let j = i; while (j + 1 < a.length && a[j + 1] === a[j] + 1) j++; out.push(j > i ? `${a[i]}–${a[j]}` : `${a[i]}`); i = j + 1; }
+  return out.join(", ");
+};
+export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export const fmtMinutes = (m) => (m < 1.5 ? "about a minute" : m < 90 ? `about ${Math.round(m)} min` : `about ${(m / 60).toFixed(1)} h`);

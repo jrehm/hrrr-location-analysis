@@ -158,7 +158,7 @@ def run_validation(study, progress=None):
         # Bias-adjusted venue statistics (quantile mapping fitted on racing-hour pairs,
         # separately per season where both seasons have data)
         for w in study.windows_for(venue):
-            ser = load_series(study, venue, w.cache_tag)
+            ser = load_series(study, venue, w.tags)
             core = ser[(ser["md"] >= w.lo) & (ser["md"] <= w.hi) & ser["hour"].isin(race)]
             fit = pairs_for_qm[pairs_for_qm["hour"].isin(race) &
                                (pairs_for_qm["month"] == w.fit_month)]

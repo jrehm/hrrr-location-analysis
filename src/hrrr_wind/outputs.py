@@ -1,4 +1,6 @@
 """Write analysis and validation results to the study's output folder (CSV + PNG)."""
+import json
+
 import matplotlib.pyplot as plt
 
 from hrrr_wind import plots
@@ -12,6 +14,7 @@ def _save(fig, path, **kw):
 def write_analysis(study, res):
     out = study.out_dir
     out.mkdir(parents=True, exist_ok=True)
+    (out / "analysis_state.json").write_text(json.dumps({"fingerprint": study.fingerprint()}))
     res.summary.to_csv(out / "summary_stats.csv", index=False)
     res.per_year.to_csv(out / "per_year_stats.csv", index=False)
     res.quality.to_csv(out / "data_quality.csv", index=False)
@@ -26,6 +29,9 @@ def write_analysis(study, res):
 
 
 def write_validation(study, val):
+    """Write validation outputs; a study without buoys has none to write."""
+    if not val.scatter:
+        return
     out = study.out_dir
     out.mkdir(parents=True, exist_ok=True)
     _save(plots.validation_figure(val.scatter), out / "validation_scatter.png")

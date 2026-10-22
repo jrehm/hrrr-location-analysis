@@ -60,12 +60,13 @@ def fetch_wind(dates, source, max_threads=50):
     return vt, u, v
 
 def build_cache(out_dir, venues, years, tag, start, end, start_hour=0, end_hour=23,
-                max_rss_gb=6.0, chunk_hours=72, progress=None):
+                max_rss_gb=6.0, chunk_hours=72, progress=None, clubs=None):
     """Download hourly 10 m u/v around each venue and write cache_<venue>_<tag>.npz.
 
     Resumable (per-year checkpoints), memory-capped, retries missing hours on alternate
     mirrors, and writes missing_<tag>.json. ``start``/``end`` are "MM-DD". ``progress`` is an
-    optional callback ``progress(year, chunk_index, n_chunks)`` for a UI.
+    optional callback ``progress(year, chunk_index, n_chunks)`` for a UI. ``clubs`` maps venue
+    key -> (lat, lon); venues not in it use the built-in presets.
     """
     import json
     from herbie import Herbie
@@ -82,8 +83,10 @@ def build_cache(out_dir, venues, years, tag, start, end, start_hour=0, end_hour=
     lon2d = clim.normalize_lon(ref["longitude"].values)
     land2d = ref[list(ref.data_vars)[0]].values
 
-    slices = {k: club_xy_slices(lat2d, lon2d, clim.YACHT_CLUB_PRESETS[k]["lat"],
-                                clim.YACHT_CLUB_PRESETS[k]["lon"], CACHE_HALF_WIDTH_NM)
+    clubs = clubs or {}
+    slices = {k: club_xy_slices(lat2d, lon2d, *(clubs.get(k) or (clim.YACHT_CLUB_PRESETS[k]["lat"],
+                                                                 clim.YACHT_CLUB_PRESETS[k]["lon"])),
+                                CACHE_HALF_WIDTH_NM)
               for k in venues}
     ckpt_dir = out_dir / f"ckpt_{tag}"
     ckpt_dir.mkdir(exist_ok=True)
@@ -94,6 +97,9 @@ def build_cache(out_dir, venues, years, tag, start, end, start_hour=0, end_hour=
         ck = ckpt_dir / f"year_{year}.npz"
         if ck.exists():                             # resume: reuse finished years
             z = np.load(ck, allow_pickle=True)
+            absent = [key for key in venues if f"{key}_time" not in z.files]
+            if absent:
+                raise RuntimeError(f"checkpoint {ck} has no data for {absent}; use a new tag for new venues")
             for key in venues:
                 per_year[key].append((z[f"{key}_time"], z[f"{key}_u"], z[f"{key}_v"]))
             missing_by_year[year] = list(z["missing"])
@@ -187,6 +193,29 @@ def build_cache(out_dir, venues, years, tag, start, end, start_hour=0, end_hour=
         logger.info(f"saved cache for {key}: {len(t)} times")
     with open(out_dir / f"missing_{tag}.json", "w") as f:
         json.dump(missing_by_year, f, indent=2)
+
+def fetch_land_mask(out_dir, key, lat, lon, year=2024):
+    """Grid + land mask around a club from one HRRR file, cached as landmask_<key>.npz.
+
+    Lets the new-study map preview show water and land before any wind has been downloaded.
+    Needs the ``download`` extra. Returns a dict(lat, lon, land) usable by ``box_cells``.
+    """
+    path = Path(out_dir) / f"landmask_{key}.npz"
+    if path.exists():
+        return dict(np.load(path))
+    from herbie import Herbie
+    ref = Herbie(f"{year}-09-10 16:00", model="hrrr", product="sfc", fxx=0,
+                 source="aws").xarray(":LAND:surface:")
+    ref = ref[0] if isinstance(ref, list) else ref
+    lat2d = ref["latitude"].values
+    lon2d = clim.normalize_lon(ref["longitude"].values)
+    ys, xs = club_xy_slices(lat2d, lon2d, lat, lon, CACHE_HALF_WIDTH_NM)
+    mask = {"lat": np.array(lat2d[ys, xs]), "lon": np.array(lon2d[ys, xs]),
+            "land": np.array(ref[list(ref.data_vars)[0]].values[ys, xs])}
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(path, **mask)
+    return mask
+
 
 def box_series(cache, lat_c, lon_c, radius_nm, water_only=True, nearest_only=False):
     """Mean u/v over water cells within radius of (lat_c, lon_c); returns DataFrame."""

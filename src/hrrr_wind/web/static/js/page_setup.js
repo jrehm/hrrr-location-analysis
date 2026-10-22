@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { api } from "./api.js";
+import { api, patch } from "./api.js";
 import { html, binColors } from "./components.js";
 import { debounce, fmt, label, pct, cssVar } from "./util.js";
 
@@ -8,17 +8,20 @@ const TILES = {
   "Street": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png", "© OpenStreetMap contributors"],
 };
 
-export function SetupPage({ meta }) {
-  const [vkey, setVkey] = useState(meta.venues[0].key);
+export function SetupPage({ meta, venueKey, onSaved }) {
+  const [vkey, setVkey] = useState(meta.venues.some((v) => v.key === venueKey) ? venueKey : meta.venues[0].key);
   const venue = meta.venues.find((v) => v.key === vkey);
   const [p, setP] = useState({ bearing: venue.bearing, offshore_nm: venue.offshore_nm, radius_nm: venue.radius_nm });
   const seasons = meta.windows.filter((w) => w.venue === vkey);
   const [season, setSeason] = useState(seasons[0].season);
   const [geo, setGeo] = useState(null), [quick, setQuick] = useState(null), [err, setErr] = useState(null);
+  const [name, setName] = useState(venue.name), [saving, setSaving] = useState(false), [saveErr, setSaveErr] = useState(null);
+  const canSave = !meta.readonly && !meta.locked && !!onSaved;
   const mapEl = useRef(), map = useRef(), layer = useRef(), fitted = useRef(null);
 
   useEffect(() => { // switching venue resets the controls to the study's values
     setP({ bearing: venue.bearing, offshore_nm: venue.offshore_nm, radius_nm: venue.radius_nm });
+    setName(venue.name);
     setSeason(meta.windows.find((w) => w.venue === vkey).season);
   }, [vkey]);
 
@@ -57,6 +60,12 @@ export function SetupPage({ meta }) {
   const set = (k) => (e) => setP({ ...p, [k]: Number(e.target.value) });
   const q = quick, colors = binColors();
   const dirty = p.bearing !== venue.bearing || p.offshore_nm !== venue.offshore_nm || p.radius_nm !== venue.radius_nm;
+  const save = async () => {
+    setSaving(true); setSaveErr(null);
+    try { await patch(`studies/${meta.id}/venues/${vkey}`, { name: name.trim(), ...p }); await onSaved(`Saved ${name.trim()}. The results need updating: see the bar above.`); }
+    catch (e) { setSaveErr(e.message); }
+    setSaving(false);
+  };
   return html`<div class="grid g2" style="grid-template-columns:minmax(0,320px) minmax(0,1fr)">
     <div class="grid" style="align-content:start">
       <div class="card controls">
@@ -75,11 +84,16 @@ export function SetupPage({ meta }) {
             ${seasons.map((w) => html`<option value=${w.season}>${label(vkey, w.season)} (${w.core[0]} to ${w.core[1]})</option>`)}</select></label>
         <button disabled=${!dirty} onClick=${() => setP({ bearing: venue.bearing, offshore_nm: venue.offshore_nm, radius_nm: venue.radius_nm })}>
           Reset to study values (${venue.bearing}°, ${venue.offshore_nm} nm)</button>
+        ${canSave && html`<label class="f">Venue name<input type="text" maxlength="60" value=${name} onInput=${(e) => setName(e.target.value)} /></label>
+          <button class="primary" disabled=${saving || (!dirty && name.trim() === venue.name) || !name.trim()} onClick=${save}>Save to study</button>
+          <p class="small muted" style="margin:0">Saves the sample point and name. The club position is fixed: to move a club, add it as a new venue. No re-download is needed; the results are recomputed.</p>
+          ${saveErr && html`<p class="err small">${saveErr}</p>`}`}
       </div>
       <div class="card">
         <h2>Racing-hour wind here</h2>
         ${err && html`<p class="err">${err}</p>`}
-        ${q && q.n_cells === 0 && html`<p class="err">No water cells in this box. Move the point offshore or widen the box.</p>`}
+        ${q && q.no_data && html`<p class="muted">No wind data has been downloaded for this window yet (use the button at the top of the page).</p>`}
+        ${q && q.n_cells === 0 && !q.no_data && html`<p class="err">No water cells in this box. Move the point offshore or widen the box.</p>`}
         ${q && q.n_cells > 0 && html`
           <div class="stat"><div><b>${fmt(q.mean)} kt</b><span class="small muted">mean</span></div>
             <div><b>${fmt(q.median)}</b><span class="small muted">median</span></div>

@@ -72,3 +72,34 @@ th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: upp
 svg.rose text { fill: var(--muted); font-size: 11px; }
 .files a { display: inline-block; margin: 2px 14px 2px 0; color: var(--accent); }
 .err { color: var(--warn); }
+
+/* study home, status strip, venues */
+.crumb { font-size: 13px; width: 100%; }
+.crumb a { color: var(--accent); text-decoration: none; }
+.strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 14px; margin-bottom: 16px;
+  background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; }
+.strip.warn { border-left-color: var(--warn); } .strip.ok { border-left-color: #199e70; }
+.strip .grow { flex: 1 1 260px; min-width: 0; }
+.strip .bar { margin-top: 6px; height: 8px; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+.notice { display: flex; justify-content: space-between; gap: 12px; padding: 8px 14px; margin-bottom: 16px; border-radius: 8px;
+  background: var(--wash); border: 1px solid var(--line); font-size: 14px; }
+.chip { display: inline-block; font-size: 12px; padding: 1px 10px; border-radius: 999px; background: var(--wash); border: 1px solid var(--line); color: var(--muted); }
+.chip.ok { color: #199e70; border-color: #199e70; } .chip.warn { color: var(--warn); border-color: var(--warn); }
+.chip.bad { color: #c0392b; border-color: #c0392b; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip.bad { color: #f0766a; border-color: #f0766a; } }
+:root[data-theme="dark"] .chip.bad { color: #f0766a; border-color: #f0766a; }
+a.card.link { display: block; color: inherit; text-decoration: none; }
+a.card.link:hover { border-color: var(--accent); }
+.steps { margin: 0; padding-left: 20px; } .steps li { margin: 4px 0; } .steps li.done { color: var(--muted); text-decoration: line-through; }
+details.adv > summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
+
+/* years editor */
+.ychips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ychip { padding: 4px 10px; border-radius: 6px; font-size: 13px; }
+.ychip.in.full { background: var(--accent); color: #fff; border-color: var(--accent); }
+.ychip.in.need { background: var(--panel); color: var(--warn); border: 2px solid var(--warn); }
+.ychip.out.disk { background: var(--wash); color: var(--muted); border-style: dashed; text-decoration: line-through; }
+.ychip.out { background: var(--panel); color: var(--muted); }
+.confirm { border: 1px solid var(--warn); border-radius: 8px; padding: 10px 14px; background: var(--wash); display: grid; gap: 8px; }
+button.danger { color: #c0392b; border-color: #c0392b; }

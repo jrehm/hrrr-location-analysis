@@ -23,15 +23,23 @@ def load_series(study, venue, cache_tag, bearing=None, offshore_nm=None, radius_
     prm = {"bearing": v.bearing if bearing is None else bearing,
            "offshore_nm": v.offshore_nm if offshore_nm is None else offshore_nm,
            "radius_nm": v.radius_nm if radius_nm is None else radius_nm}
-    cache = load_cache(study.out_dir, venue, cache_tag)
+    # one tag (a str) must exist; several (a window's caches) use whichever exist, as they share a grid
+    tags = [cache_tag] if isinstance(cache_tag, str) else [t for t in cache_tag if study.cache_path(venue, t).exists()]
+    if not tags:
+        raise FileNotFoundError(f"no wind cache for {venue}: {cache_tag}")
     lat_c, lon_c = study.sample_point(venue, bearing=prm["bearing"],
                                       offshore_nm=prm["offshore_nm"])
-    df, n = box_series(cache, lat_c, lon_c, prm["radius_nm"])
-    if df is None:
-        return None
+    frames = []
+    for t in tags:
+        part, n = box_series(load_cache(study.out_dir, venue, t), lat_c, lon_c, prm["radius_nm"])
+        if part is None:
+            return None
+        frames.append(part)
+    df = frames[0] if len(frames) == 1 else pd.concat(frames, ignore_index=True)
     df["time"] = pd.to_datetime(df["time"])
     df = df.drop_duplicates("time").sort_values("time").reset_index(drop=True)
     df["year"] = df["time"].dt.year
+    df = df[df["year"].isin(study.years)].reset_index(drop=True)      # years left out of the study stay on disk
     df["date"] = df["time"].dt.normalize()
     df["hour"] = df["time"].dt.hour
     df["md"] = df["time"].dt.month * 100 + df["time"].dt.day
@@ -217,7 +225,10 @@ def run_analysis(study, progress=None):
     res = AnalysisResults(None, None, None, None)
     for w in study.windows:
         tick(f"statistics and confidence intervals: {w.venue} {w.season}")
-        base = load_series(study, w.venue, w.cache_tag)
+        base = load_series(study, w.venue, w.tags)
+        if base is None:
+            raise ValueError(f"{w.venue}: the sample-point box has no water cells; "
+                             "move the sample point offshore or widen the box, then rerun")
         for scope, a, b in (("core", w.lo, w.hi), ("buffer", None, None)):
             d = base if scope == "buffer" else base[(base["md"] >= a) & (base["md"] <= b)]
             race = d[d["hour"].isin(study.race_utc)].reset_index(drop=True)
@@ -259,7 +270,7 @@ def run_analysis(study, progress=None):
         tick(f"sample-point sensitivity: {w.venue} {w.season}")
         for off in study.sens_offshore_nm:
             for rad in study.sens_radius_nm:
-                d = load_series(study, w.venue, w.cache_tag, offshore_nm=off, radius_nm=rad)
+                d = load_series(study, w.venue, w.tags, offshore_nm=off, radius_nm=rad)
                 if d is None:
                     continue
                 r = d[(d["md"] >= w.lo) & (d["md"] <= w.hi) & d["hour"].isin(study.race_utc)]

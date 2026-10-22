@@ -15,6 +15,7 @@ function JobRow({ job, onCancel }) {
   const elapsed = (job.finished || Date.now() / 1000) - (job.started || job.created);
   const what = job.kind === "cache"
     ? `Download ${job.params.venues.join(", ")} ${job.params.start} to ${job.params.end}, ${plural(job.params.years.length, "year")} (${job.params.tag})`
+    : job.kind === "run_study" ? `Download missing data, analyze and validate (${plural(job.params.downloads.length, "download")})`
     : job.kind === "analyze" ? "Recompute analysis" : "Recompute validation";
   const toggleLog = async () => setLog(log === null ? (await api(`jobs/${job.id}/log`, { lines: 80 })).log : null);
   return html`<div class="card" style="padding:12px">

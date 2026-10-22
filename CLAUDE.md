@@ -14,7 +14,7 @@ Python tool + studies for HRRR wind climatology at sailing venues (see README.md
 - Regression: `python -m pytest -m golden` (about 3 min) must pass after any change to stats/validation/cache code
 
 ## Where we are
-`docs/HANDOFF_new_study_flow.md` describes the current state and the next planned feature (new study / add venue flow).
+The new study / add venue flow is implemented (`config.validate_definition`/`write_study`, `POST /api/studies`, `POST /api/studies/{id}/venues`, `run_study` job, `web/static/js/page_new.js`); see README. `docs/HANDOFF_new_study_flow.md` is the original brief.
 
 ## Rules learned the hard way
 - Long extractions: copy numpy slices (`np.array(..., copy=True)`), checkpoint per year, cap RSS (`--max-rss-gb`), and watch memory, not just logs.

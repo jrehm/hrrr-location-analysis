@@ -15,10 +15,10 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 
-KINDS = ("cache", "analyze", "validate")
+from hrrr_wind.config import cache_plan, FIRST_YEAR, MAX_WINDOW_DAYS, MAX_YEARS  # noqa: F401
+
+KINDS = ("cache", "analyze", "validate", "run_study")
 TAG_RE = re.compile(r"^[A-Za-z0-9_]{1,40}$")
-MAX_YEARS, MAX_WINDOW_DAYS = 15, 45
-FIRST_YEAR = 2015                      # HRRR archive starts 2014-09-30
 FILES_PER_SECOND = 1.9                 # observed download rate, used only for the estimate
 MIN_RSS_GB, MAX_RSS_GB, DEFAULT_RSS_GB = 1.0, 8.0, 4.0
 
@@ -97,10 +97,20 @@ def validate_cache_params(study, p):
             "start_hour": sh, "end_hour": eh, "max_rss_gb": rss}
 
 
+def validate_run_params(study, p):
+    """Check a run_study job: only the memory cap is user-chosen; the plan comes from study.toml."""
+    rss = float(p.get("max_rss_gb", DEFAULT_RSS_GB))
+    if not (MIN_RSS_GB <= rss <= MAX_RSS_GB):
+        raise JobError(f"max_rss_gb must be between {MIN_RSS_GB} and {MAX_RSS_GB}")
+    return {"max_rss_gb": rss, "downloads": cache_plan(study)}
+
+
 def build_command(study_path, kind, params):
     cmd = [sys.executable, "-W", "ignore", "-m", "hrrr_wind.venue_analysis",
-           "--progress-lines", "--study", str(study_path), kind]
-    if kind == "cache":
+           "--progress-lines", "--study", str(study_path), "run" if kind == "run_study" else kind]
+    if kind == "run_study":
+        cmd += ["--max-rss-gb", str(params["max_rss_gb"])]
+    elif kind == "cache":
         cmd += ["--venues", *params["venues"], "--tag", params["tag"],
                 "--years", *map(str, params["years"]), "--start", params["start"],
                 "--end", params["end"], "--start-hour", str(params["start_hour"]),
@@ -138,6 +148,8 @@ class JobManager:
         if kind not in KINDS:
             raise JobError(f"kind must be one of {KINDS}")
         params = validate_cache_params(study, params or {}) if kind == "cache" else {}
+        if kind == "run_study":
+            params = validate_run_params(study, params or {})
         with self._lock:
             busy = self.running()
             if busy:

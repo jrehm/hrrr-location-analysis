@@ -4,8 +4,12 @@ Run locally:  uvicorn hrrr_wind.api.app:app --reload
 Set HRRR_WIND_READONLY=1 for a hosted demo (no write/download endpoints are ever exposed in
 this module; the flag is reported to the UI so it can hide controls added later).
 """
+import json
 import math
 import os
+import subprocess
+import sys
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 
@@ -14,10 +18,13 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from hrrr_wind.cache import box_cells, load_cache
-from hrrr_wind.config import STUDIES_DIR, load_study
+from hrrr_wind.config import (FIRST_YEAR, LOCKED_STUDIES, SLUG_RE, STUDIES_DIR, DefinitionError, cache_plan,
+                              cache_years, load_study, set_years, study_dict, validate_definition, window_tag,
+                              write_study)
+from hrrr_wind.climatology import project_point
 from hrrr_wind.jobs import JobConflict, JobError, JobManager
 from hrrr_wind.stats import load_series, summarize, windrose_table
 
@@ -74,19 +81,91 @@ def window_for(study, venue, season):
     raise HTTPException(404, f"no {season} window for {venue}")
 
 
+FILES_PER_SECOND = 1.9                  # observed download rate, for estimates only
+
+
+def is_stale(sid, s, summary):
+    """Results older than the study's definition. Uses the fingerprint stored with the results (so a
+    rename does not count); older outputs without one fall back to comparing file times."""
+    state = s.out_dir / "analysis_state.json"
+    if state.exists():
+        try:
+            return json.loads(state.read_text()).get("fingerprint") != s.fingerprint()
+        except ValueError:
+            return True
+    return study_paths()[sid].stat().st_mtime > summary.stat().st_mtime
+
+
+def study_status(sid, s):
+    """Where a study stands: no_data | partial | running | no_results | stale | ready.
+
+    Includes what a download would still fetch (files, minutes) so the UI can say so up front.
+    """
+    plan = cache_plan(s)
+    files = sum(len(g["years"]) * 24 * ((datetime.strptime(f"2001-{g['end']}", "%Y-%m-%d")
+                                       - datetime.strptime(f"2001-{g['start']}", "%Y-%m-%d")).days + 1)
+                for g in plan)
+    summary = s.out_dir / "summary_stats.csv"
+    job = MANAGER.running()
+    job = job if job and job.study_id == sid else None
+    have_any = any(s.has_data(w) for w in s.windows)
+    if job:
+        state = "running"
+    elif plan:
+        state = "partial" if have_any else "no_data"
+    elif not summary.exists():
+        state = "no_results"
+    elif sid not in LOCKED_STUDIES and is_stale(sid, s, summary):
+        state = "stale"
+    else:
+        state = "ready"
+    return {"state": state, "missing_files": files, "missing_minutes": round(files / FILES_PER_SECOND / 60, 1),
+            "job": job.public() if job else None}
+
+
 @app.get("/api/studies")
 def list_studies():
-    return [{"id": sid, "name": get_study(sid).name} for sid in study_paths()]
+    out = []
+    for sid in study_paths():
+        s = get_study(sid)
+        out.append({"id": sid, "name": s.name, "years": [min(s.years), max(s.years)],
+                    "venues": [v.name for v in s.venues.values()], "locked": sid in LOCKED_STUDIES,
+                    "state": study_status(sid, s)["state"]})
+    return out
 
 
 def list_caches(study):
-    """Wind caches present in the study's output folder, as {venue, tag, mb}."""
+    """Wind caches present in the study's output folder: venue, tag, size, years inside, and whether a window uses it."""
+    used = {(w.venue, t) for w in study.windows for t in w.tags}
     out = []
     for p in sorted(study.out_dir.glob("cache_*.npz")) if study.out_dir.exists() else []:
         for v in study.venues:
             prefix = f"cache_{v}_"
             if p.name.startswith(prefix):
-                out.append({"venue": v, "tag": p.stem[len(prefix):], "mb": round(p.stat().st_size / 1e6, 1)})
+                tag = p.stem[len(prefix):]
+                out.append({"venue": v, "tag": tag, "mb": round(p.stat().st_size / 1e6, 1),
+                            "years": sorted(cache_years(study.out_dir, v, tag)), "used": (v, tag) in used})
+    return out
+
+
+def window_info(s, w):
+    """Per-window data status: size, years on disk, years the study wants but lacks, years on disk but excluded."""
+    present = s.present_tags(w)
+    if not present:
+        return None
+    have = s.window_years(w)
+    return {"mb": round(sum(s.cache_path(w.venue, t).stat().st_size for t in present) / 1e6, 1),
+            "years": sorted(have), "missing_years": [y for y in s.years if y not in have],
+            "excluded_years": sorted(have - set(s.years))}
+
+
+def year_chips(s):
+    """For the years editor: every selectable year, whether it is in the study, and how many windows hold it."""
+    infos = [window_info(s, w) for w in s.windows]
+    out = []
+    for y in range(FIRST_YEAR, datetime.now().year + 1):
+        out.append({"year": y, "in_study": y in s.years,
+                    "on_disk": sum(1 for i in infos if i and y in i["years"]), "windows": len(s.windows)})
     return out
 
 
@@ -97,16 +176,28 @@ def study_meta(sid: str):
         "id": sid, "name": s.name, "years": s.years, "race_label": s.race_label,
         "race_utc": [s.race_start, s.race_end], "utc_offset": s.utc_offset,
         "tz_abbr": s.tz_abbr, "readonly": is_readonly(), "caches": list_caches(s),
-        "venues": [{"key": v.key, "name": v.name, "lat": v.preset["lat"],
-                    "lon": v.preset["lon"], "bearing": v.bearing,
+        "locked": sid in LOCKED_STUDIES, "plan": cache_plan(s), "status": study_status(sid, s),
+        "has_results": (s.out_dir / "summary_stats.csv").exists(),
+        "venues": [{"key": v.key, "name": v.name, "lat": v.lat,
+                    "lon": v.lon, "bearing": v.bearing,
                     "offshore_nm": v.offshore_nm, "radius_nm": v.radius_nm}
                    for v in s.venues.values()],
-        "windows": [{"venue": w.venue, "season": w.season, "core": list(w.core)}
-                    for w in s.windows],
+        "windows": [{"venue": w.venue, "season": w.season, "core": list(w.core), "cache_tag": w.cache_tag,
+                     "cache": window_info(s, w)} for w in s.windows],
+        "year_chips": year_chips(s),
         "pairs": [{"a": p.a, "b": p.b, "season": p.season} for p in s.pairs],
         "buoys": [{"venue": b.venue, "id": b.id, "lat": b.lat, "lon": b.lon}
                   for b in s.buoys.values()],
     }
+
+
+def venue_grid(study, venue):
+    """Lat/lon/land grid for a venue: from a wind cache if one exists, else a saved land mask, else None."""
+    for w in study.windows_for(venue):
+        for tag in study.present_tags(w):
+            return load_cache(study.out_dir, venue, tag)
+    mask = study.out_dir / f"landmask_{venue}.npz"
+    return dict(np.load(mask)) if mask.exists() else None
 
 
 @app.get("/api/studies/{sid}/geometry")
@@ -116,11 +207,11 @@ def geometry(sid: str, venue: str, bearing: float, offshore_nm: float = Query(gt
     s = get_study(sid)
     v = check_venue(s, venue)
     lat_c, lon_c = s.sample_point(venue, bearing=bearing, offshore_nm=offshore_nm)
-    tag = s.windows_for(venue)[0].cache_tag
-    cells = box_cells(load_cache(s.out_dir, venue, tag), lat_c, lon_c, radius_nm)
+    grid = venue_grid(s, venue)
+    cells = box_cells(grid, lat_c, lon_c, radius_nm) if grid else []
     dlat = radius_nm / 60.0
     dlon = radius_nm / (60.0 * math.cos(math.radians(lat_c)))
-    return {"club": {"lat": v.preset["lat"], "lon": v.preset["lon"], "name": v.name},
+    return {"club": {"lat": v.lat, "lon": v.lon, "name": v.name}, "has_grid": grid is not None,
             "sample": {"lat": lat_c, "lon": lon_c},
             "box": [[lat_c - dlat, lon_c - dlon], [lat_c + dlat, lon_c + dlon]],
             "cells": cells, "n_water": sum(c["water"] and c["in_box"] for c in cells)}
@@ -133,7 +224,9 @@ def quick_stats(sid: str, venue: str, season: str, bearing: float,
     s = get_study(sid)
     check_venue(s, venue)
     w = window_for(s, venue, season)
-    d = load_series(s, venue, w.cache_tag, bearing=bearing, offshore_nm=offshore_nm,
+    if not s.has_data(w):
+        return {"n_cells": 0, "no_data": True}
+    d = load_series(s, venue, w.tags, bearing=bearing, offshore_nm=offshore_nm,
                     radius_nm=radius_nm)
     if d is None:
         return {"n_cells": 0}
@@ -163,7 +256,9 @@ def windrose(sid: str, venue: str, season: str):
     s = get_study(sid)
     check_venue(s, venue)
     w = window_for(s, venue, season)
-    d = load_series(s, venue, w.cache_tag)
+    if not s.has_data(w):
+        return {"n": 0, "no_data": True}
+    d = load_series(s, venue, w.tags)
     r = d[(d["md"] >= w.lo) & (d["md"] <= w.hi) & d["hour"].isin(s.race_utc)]
     return windrose_table(r["spd_kt"], r["dir"])
 
@@ -174,7 +269,9 @@ def diurnal(sid: str):
     s = get_study(sid)
     out = []
     for w in s.windows:
-        d = load_series(s, w.venue, w.cache_tag)
+        if not s.has_data(w):
+            continue
+        d = load_series(s, w.venue, w.tags)
         d = d[(d["md"] >= w.lo) & (d["md"] <= w.hi)]
         h = d.groupby("hour")["spd_kt"].mean()
         local = pd.Series(h.values, index=(h.index + s.utc_offset) % 24).sort_index()
@@ -199,6 +296,232 @@ def get_file(sid: str, name: str):
     if Path(name).name != name or path.suffix not in DOWNLOAD_EXT or not path.is_file():
         raise HTTPException(404, "no such file")
     return FileResponse(path)
+
+
+class NewStudy(BaseModel):
+    slug: str
+    definition: dict
+
+
+class NewVenue(BaseModel):
+    venue: dict
+    windows: list[dict]
+
+
+class Preview(BaseModel):
+    lat: float
+    lon: float
+    bearing: float
+    offshore_nm: float = Field(gt=0, le=30)
+    radius_nm: float = Field(4.0, gt=0, le=10)
+
+
+def preview_key(lat, lon):
+    return f"{round(lat * 20) / 20:.2f}_{round(lon * 20) / 20:.2f}".replace("-", "m")
+
+
+def preview_dir():
+    return STUDIES_DIR / ".preview"        # not a study (no study.toml); holds land masks fetched for maps
+
+
+def try_land_mask(out_dir, key, lat, lon):
+    """Land mask for a position, fetched in a child process.
+
+    The server must never import herbie/pyproj itself: once PROJ is loaded, a later fork() (starting
+    a job) can segfault in PROJ's atfork handler on macOS and kill the whole server.
+    """
+    path = Path(out_dir) / f"landmask_{key}.npz"
+    if not path.exists():
+        cmd = [sys.executable, "-W", "ignore", "-m", "hrrr_wind.venue_analysis", "landmask",
+               "--out", str(out_dir), "--key", key, "--lat", str(lat), "--lon", str(lon)]
+        try:                                # no [download] extra, offline, archive hiccup: preview degrades
+            subprocess.run(cmd, capture_output=True, timeout=120, check=True)
+        except (OSError, subprocess.SubprocessError):
+            return None
+    return dict(np.load(path)) if path.exists() else None
+
+
+@app.post("/api/preview/geometry")
+def preview_geometry(req: Preview):
+    """Map preview for a position that is not in any study yet (needs network once per area)."""
+    require_writable()
+    if not (21 <= req.lat <= 53 and -135 <= req.lon <= -60):
+        raise HTTPException(422, "position is outside the HRRR (continental US) domain")
+    lat_c, lon_c = project_point(req.lat, req.lon, req.bearing, req.offshore_nm)
+    grid = try_land_mask(preview_dir(), preview_key(req.lat, req.lon), req.lat, req.lon)
+    cells = box_cells(grid, lat_c, lon_c, req.radius_nm) if grid else []
+    dlat = req.radius_nm / 60.0
+    dlon = req.radius_nm / (60.0 * math.cos(math.radians(lat_c)))
+    return {"club": {"lat": req.lat, "lon": req.lon}, "sample": {"lat": lat_c, "lon": lon_c},
+            "box": [[lat_c - dlat, lon_c - dlon], [lat_c + dlat, lon_c + dlon]], "has_grid": grid is not None,
+            "cells": cells, "n_water": sum(c["water"] and c["in_box"] for c in cells)}
+
+
+def save_preview_masks(study, out_dir):
+    """Copy any previewed land masks into a new study so its map works before the first download."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for v in study.venues.values():
+        src = preview_dir() / f"landmask_{preview_key(v.lat, v.lon)}.npz"
+        if src.exists():
+            (out_dir / f"landmask_{v.key}.npz").write_bytes(src.read_bytes())
+
+
+@app.post("/api/studies", status_code=201)
+def create_study(req: NewStudy):
+    """Create studies/<slug>/study.toml from a definition (never overwrites an existing study)."""
+    require_writable()
+    if not SLUG_RE.match(req.slug):
+        raise HTTPException(422, "study id must be 2-40 lowercase letters, digits or underscores")
+    path = STUDIES_DIR / req.slug / "study.toml"
+    if path.parent.exists():
+        raise HTTPException(409, f"study '{req.slug}' already exists")
+    try:
+        write_study(path, req.definition)
+    except DefinitionError as e:
+        raise HTTPException(422, str(e))
+    get_study.cache_clear()
+    study = get_study(req.slug)
+    save_preview_masks(study, study.out_dir)
+    return study_meta(req.slug)
+
+
+@app.post("/api/studies/{sid}/venues", status_code=201)
+def add_venue(sid: str, req: NewVenue):
+    """Add a venue and its windows to a study; its other data is never touched (study.toml.bak kept)."""
+    require_writable()
+    study = get_study(sid)
+    if sid in LOCKED_STUDIES:
+        raise HTTPException(403, f"study '{sid}' is the locked reference study; copy it to extend it")
+    try:
+        d = study_dict(study_paths()[sid])
+        years = validate_definition(d)["years"]
+        d["venues"].append(req.venue)
+        for w in req.windows:
+            d["windows"].append({**w, "venue": req.venue.get("key"),
+                                 "cache_tag": window_tag(w.get("season", ""), years, req.venue.get("key"))})
+        write_study(study_paths()[sid], d, backup=True)
+    except DefinitionError as e:
+        raise HTTPException(422, str(e))
+    get_study.cache_clear()
+    study = get_study(sid)
+    save_preview_masks(study, study.out_dir)
+    return study_meta(sid)
+
+
+def baseline_state(sid, study):
+    """Results made before fingerprints existed: record the pre-edit fingerprint, so an edit that does not
+    change the analysis (a rename) does not make them look out of date."""
+    summary, state = study.out_dir / "summary_stats.csv", study.out_dir / "analysis_state.json"
+    if summary.exists() and not state.exists() and not is_stale(sid, study, summary):
+        state.write_text(json.dumps({"fingerprint": study.fingerprint()}))
+
+
+def edit_study(sid, mutate):
+    """Apply an edit to a study's study.toml (validated, backed up); refused when read-only, locked or busy."""
+    require_writable()
+    study = get_study(sid)
+    if sid in LOCKED_STUDIES:
+        raise HTTPException(403, f"study '{sid}' is the locked reference study; copy it to change it")
+    busy = MANAGER.running()
+    if busy and busy.study_id == sid:
+        raise HTTPException(409, "a job is running for this study; wait for it or cancel it first")
+    path = study_paths()[sid]
+    baseline_state(sid, study)
+    try:
+        d = study_dict(path)
+        mutate(d, study)
+        write_study(path, d, backup=True)
+    except DefinitionError as e:
+        raise HTTPException(422, str(e))
+    get_study.cache_clear()
+    return study_meta(sid)
+
+
+def find_row(rows, **match):
+    for r in rows:
+        if all(r.get(k) == v for k, v in match.items()):
+            return r
+    raise HTTPException(404, "no such venue or window in this study")
+
+
+class Rename(BaseModel):
+    name: str
+
+
+class VenuePatch(BaseModel):
+    name: str | None = None
+    bearing: float | None = None
+    offshore_nm: float | None = None
+    radius_nm: float | None = None
+
+
+class NewWindow(BaseModel):
+    venue: str
+    season: str
+    core: list[str]
+
+
+class YearList(BaseModel):
+    years: list[int]
+
+
+@app.patch("/api/studies/{sid}")
+def rename_study(sid: str, req: Rename):
+    """Change the display name only; the folder id and URL stay the same."""
+    return edit_study(sid, lambda d, s: d.update(name=req.name))
+
+
+@app.patch("/api/studies/{sid}/venues/{key}")
+def edit_venue(sid: str, key: str, req: VenuePatch):
+    """Change a venue's name or sample point (not the club position, which defines the cache box)."""
+    def mutate(d, study):
+        v = find_row(d["venues"], key=key)
+        old = v.get("bearing")
+        if req.name is not None:
+            v.update(name=req.name, lat=study.venues[key].lat, lon=study.venues[key].lon)
+        for k in ("bearing", "offshore_nm", "radius_nm"):
+            if getattr(req, k) is not None:
+                v[k] = getattr(req, k)
+        if req.bearing is not None and v.get("sensitivity_bearings", [old]) == [old]:
+            v["sensitivity_bearings"] = [req.bearing]
+    return edit_study(sid, mutate)
+
+
+@app.delete("/api/studies/{sid}/venues/{key}")
+def remove_venue(sid: str, key: str):
+    """Remove a venue with its windows, pairs and buoys from the study. Data on disk is kept."""
+    def mutate(d, study):
+        find_row(d["venues"], key=key)
+        d["venues"] = [v for v in d["venues"] if v["key"] != key]
+        d["windows"] = [w for w in d["windows"] if w["venue"] != key]
+        d["pairs"] = [p for p in d.get("pairs", []) if key not in (p["a"], p["b"])]
+        d["buoys"] = [b for b in d.get("buoys", []) if b["venue"] != key]
+    return edit_study(sid, mutate)
+
+
+@app.post("/api/studies/{sid}/windows", status_code=201)
+def add_window(sid: str, req: NewWindow):
+    def mutate(d, study):
+        find_row(d["venues"], key=req.venue)
+        d["windows"].append({"venue": req.venue, "season": req.season, "core": req.core,
+                             "cache_tag": window_tag(req.season, d["years"], req.venue)})
+        set_years(d, d["years"], study.out_dir)          # a re-added window may need years its old cache lacks
+    return edit_study(sid, mutate)
+
+
+@app.delete("/api/studies/{sid}/windows/{venue}/{season}")
+def remove_window(sid: str, venue: str, season: str):
+    def mutate(d, study):
+        find_row(d["windows"], venue=venue, season=season)
+        d["windows"] = [w for w in d["windows"] if not (w["venue"] == venue and w["season"] == season)]
+        d["pairs"] = [p for p in d.get("pairs", []) if not (p["season"] == season and venue in (p["a"], p["b"]))]
+    return edit_study(sid, mutate)
+
+
+@app.post("/api/studies/{sid}/years")
+def edit_years(sid: str, req: YearList):
+    """Set the study's years. New years are downloaded next; removed years stay on disk (excluded)."""
+    return edit_study(sid, lambda d, study: set_years(d, req.years, study.out_dir))
 
 
 class JobRequest(BaseModel):
@@ -252,7 +575,7 @@ def cancel_job(jid: str):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True}
+    return {"ok": True, "readonly": is_readonly()}
 
 
 app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

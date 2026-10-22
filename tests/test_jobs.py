@@ -94,7 +94,13 @@ def test_unknown_kind_and_readonly_mode(api, monkeypatch):
 def test_meta_lists_caches_and_build_command_shape(api):
     c, _, tmp = api
     (tmp / "cache_gtyc_sep_x.npz").write_bytes(b"x" * 10)
-    assert {"venue": "gtyc", "tag": "sep_x", "mb": 0.0} in c.get(f"/api/studies/{SID}").json()["caches"]
+    assert {"venue": "gtyc", "tag": "sep_x", "mb": 0.0, "years": [], "used": False} in c.get(f"/api/studies/{SID}").json()["caches"]
     cmd = jobs.build_command("/s/study.toml", "cache", {**GOOD, "start_hour": 0, "end_hour": 23, "max_rss_gb": 4.0})
     assert cmd[4:7] == ["hrrr_wind.venue_analysis", "--progress-lines", "--study"] and "--max-rss-gb" in cmd
     assert jobs.estimate({"years": [2020, 2021], "start": "09-08", "end": "09-14"})["files"] == 2 * 7 * 24
+
+
+def test_run_study_command_uses_the_run_subcommand():
+    from hrrr_wind.jobs import build_command
+    cmd = build_command("s.toml", "run_study", {"max_rss_gb": 4.0})
+    assert cmd[cmd.index("--study") + 2:] == ["run", "--max-rss-gb", "4.0"]
