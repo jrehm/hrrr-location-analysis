@@ -13,6 +13,9 @@ Python tool + studies for HRRR wind climatology at sailing venues (see README.md
 - Jobs: downloads/recomputes run as subprocesses (`jobs.py`); never let a request overwrite an existing cache; `HRRR_WIND_READONLY=1` must keep every write endpoint at 403
 - Regression: `python -m pytest -m golden` (about 3 min) must pass after any change to stats/validation/cache code
 
+## Versioning
+Semantic versioning. `__version__` in `src/hrrr_wind/__init__.py` is the only place the number is set (pyproject reads it; the UI footer and `/api/health` show it). Every user-visible change adds a line under `[Unreleased]` in `CHANGELOG.md`; to release: rename that section to the new version and date, bump `__version__`, commit, `git tag -a vX.Y.Z`. Never push tags without asking.
+
 ## Where we are
 The new study / add venue flow is implemented (`config.validate_definition`/`write_study`, `POST /api/studies`, `POST /api/studies/{id}/venues`, `run_study` job, `web/static/js/page_new.js`); see README. `docs/HANDOFF_new_study_flow.md` is the original brief.
 

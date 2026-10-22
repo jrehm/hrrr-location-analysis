@@ -38,7 +38,7 @@ function App() {
 
   useEffect(() => {
     const on = () => setRoute(parse()); addEventListener("hashchange", on);
-    Promise.all([api("studies"), api("health")]).then(([l, h]) => { setStudies(l); setReadonly(!!h.readonly); }).catch((e) => setErr(e.message));
+    Promise.all([api("studies"), api("health")]).then(([l, h]) => { setStudies(l); setReadonly(!!h.readonly); const f = document.getElementById("ver"); if (f && h.version) f.textContent = `HRRR Wind Analysis v${h.version}`; }).catch((e) => setErr(e.message));
     return () => removeEventListener("hashchange", on);
   }, []);
   const refresh = async (id = sid) => { // reload the study (and the list) after something changed

@@ -15,7 +15,7 @@ nine-venue screening** (`legacy/`), and the **GTYC vs HYC study** (`studies/gtyc
 
 ---
 
-## What v1.2 does
+## What v1.3 does
 
 1. **Projects an offshore sample point** from the club by `bearing` and `offshore_nm`.
    The bearing and distance are measured *from the club coordinate*, so an inaccurate

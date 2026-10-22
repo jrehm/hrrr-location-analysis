@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from hrrr_wind import __version__
 from hrrr_wind.cache import box_cells, load_cache
 from hrrr_wind.config import (FIRST_YEAR, LOCKED_STUDIES, SLUG_RE, STUDIES_DIR, DefinitionError, cache_plan,
                               cache_years, load_study, set_years, study_dict, validate_definition, window_tag,
@@ -34,7 +35,7 @@ RESULT_FILES = {"summary": "summary_stats", "per_year": "per_year_stats",
                 "band": "sensitivity_band", "quality": "data_quality",
                 "validation": "validation_metrics", "adjusted": "bias_adjusted_summary"}
 
-app = FastAPI(title="HRRR Wind Analysis", version="0.2")
+app = FastAPI(title="HRRR Wind Analysis", version=__version__)
 MANAGER = JobManager()
 
 
@@ -575,7 +576,7 @@ def cancel_job(jid: str):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "readonly": is_readonly()}
+    return {"ok": True, "readonly": is_readonly(), "version": __version__}
 
 
 app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

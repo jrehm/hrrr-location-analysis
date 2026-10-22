@@ -103,3 +103,5 @@ details.adv > summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
 .ychip.out { background: var(--panel); color: var(--muted); }
 .confirm { border: 1px solid var(--warn); border-radius: 8px; padding: 10px 14px; background: var(--wash); display: grid; gap: 8px; }
 button.danger { color: #c0392b; border-color: #c0392b; }
+
+footer#ver { margin-top: 24px; margin-bottom: 16px; color: var(--muted); font-size: 12px; text-align: right; }
