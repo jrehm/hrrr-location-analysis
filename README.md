@@ -118,6 +118,10 @@ docker build -t hrrr-wind-demo . && docker run -p 8000:8000 hrrr-wind-demo
 
 Design notes: FastAPI serves JSON only (`/api/...`, see `/docs` for the generated reference); the UI is Preact + htm served as static files with no build step, and the libraries (Preact, Leaflet, Chart.js) are vendored in `src/hrrr_wind/web/static/vendor/`. Map tiles load from Esri and OpenStreetMap, so the map needs internet. Because the API is pure JSON and each page is a small component in `static/js/`, moving to React later is a mechanical port of the view layer.
 
+## PowerPoint slide
+
+`python studies/gtyc_hyc_2028/build_slide.py [--venue gtyc --season sep]` writes an editable one-slide .pptx (native radar and column charts, a table, text boxes) from the study data, so fonts and colors can be restyled in PowerPoint. Needs `pip install ".[slides]"`.
+
 ## Full study workflow (what `studies/gtyc_hyc_2028/` used)
 
 ```bash

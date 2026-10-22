@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-      - run: pip install -e ".[download,dev]"
+      - run: pip install -e ".[download,slides,dev]"
       - run: python -m pytest -q
 
   slim:

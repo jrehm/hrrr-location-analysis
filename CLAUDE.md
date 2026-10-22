@@ -13,6 +13,9 @@ Python tool + studies for HRRR wind climatology at sailing venues (see README.md
 - Jobs: downloads/recomputes run as subprocesses (`jobs.py`); never let a request overwrite an existing cache; `HRRR_WIND_READONLY=1` must keep every write endpoint at 403
 - Regression: `python -m pytest -m golden` (about 3 min) must pass after any change to stats/validation/cache code
 
+## Where we are
+`docs/HANDOFF_new_study_flow.md` describes the current state and the next planned feature (new study / add venue flow).
+
 ## Rules learned the hard way
 - Long extractions: copy numpy slices (`np.array(..., copy=True)`), checkpoint per year, cap RSS (`--max-rss-gb`), and watch memory, not just logs.
 - Bearing/distance sample points are projected FROM the club coordinate: confirm club coordinates (satellite view) before any run.
