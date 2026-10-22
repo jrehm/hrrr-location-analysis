@@ -1,0 +1,74 @@
+# Definition of the GTYC vs HYC (Caseville) 2028 regatta study.
+# Club coordinates and names come from the presets in hrrr_wind/climatology.py.
+name = "GTYC vs HYC, 2028 regatta"
+years = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+race_hours_utc = [14, 20]      # first and last racing hour, UTC (10 AM-4 PM EDT)
+utc_offset = -4
+tz_abbr = "EDT"
+bootstrap_draws = 2000
+seed = 42
+
+[sensitivity]
+offshore_nm = [1.0, 2.0, 3.0, 4.0, 6.0]
+radius_nm = [2.0, 4.0, 6.0]
+
+# Primary sample point per venue (bearing/offshore measured from the club position)
+[[venues]]
+key = "gtyc"
+bearing = 20
+offshore_nm = 3.0
+radius_nm = 4.0
+sensitivity_bearings = [0, 20, 40]
+
+[[venues]]
+key = "hyc"
+bearing = 330
+offshore_nm = 2.0
+radius_nm = 4.0
+sensitivity_bearings = [300, 315, 330, 345]
+
+# Core windows (MM-DD) and the cache holding them (+/- 3 day buffer is in the cache)
+[[windows]]
+venue = "gtyc"
+season = "sep"
+cache_tag = "sep_2015_2025"
+core = ["09-08", "09-14"]
+
+[[windows]]
+venue = "hyc"
+season = "sep"
+cache_tag = "sep_2015_2025"
+core = ["09-08", "09-14"]
+
+[[windows]]
+venue = "hyc"
+season = "jun"
+cache_tag = "jun_2015_2025"
+core = ["06-14", "06-21"]
+
+# Paired comparison: a minus b, per season, day-level with year bootstrap
+[[pairs]]
+a = "hyc"
+b = "gtyc"
+season = "sep"
+
+# NDBC buoys used for validation (files are relative to data/buoys/)
+[[buoys]]
+venue = "gtyc"
+id = "45020"
+lat = 44.789
+lon = -85.604
+anem_m = 2.4
+dir = "Buoy_45020"
+pattern = "45020h*.txt"
+caches = ["sep_2015_2025", "val_gtyc"]
+
+[[buoys]]
+venue = "hyc"
+id = "45163"
+lat = 43.983
+lon = -83.600
+anem_m = 2.3
+dir = "Buoy_45163_ndbc"
+pattern = "45163h*.txt.gz"
+caches = ["sep_2015_2025", "jun_2015_2025"]

@@ -2,7 +2,7 @@
 """
 Build the self-contained HTML report for the GTYC / HYC wind analysis.
 
-Reads the CSV/PNG outputs in OUT_DIR (written by hrrr_wind.venue_analysis),
+Reads the CSV/PNG outputs in OUT_DIR (written by `python -m hrrr_wind.venue_analysis`),
 embeds figures as base64, draws two native SVG charts (per-year means and
 speed-bin mix, raw vs bias-adjusted), and writes Venue_Wind_Report_GTYC_HYC.html.
 Tables are generated from the CSVs so they cannot drift from the analysis.
@@ -17,8 +17,11 @@ import numpy as np
 import pandas as pd
 
 warnings.filterwarnings("ignore")
-from hrrr_wind import venue_analysis as drv
-OUT = drv.OUT_DIR
+from hrrr_wind.config import load_study
+from hrrr_wind.stats import load_series
+
+STUDY = load_study(Path(__file__).parent / "study.toml")
+OUT = STUDY.out_dir
 REPORT = OUT / "Venue_Wind_Report_GTYC_HYC.html"
 ARTIFACT = OUT / "Venue_Wind_Report_artifact.html"
 
@@ -88,12 +91,11 @@ paired = {m.replace("HYC - GTYC ", ""): r for m, r in zip(PAIRED["metric"], PAIR
 
 # local-hour means (EDT) for the core windows, all 24 h
 diurnal = {}
-for venue, season, ctag, (c0, c1) in drv.WINDOWS:
-    d = drv.load_series(venue, ctag)
-    lo, hi = int(c0.replace("-", "")), int(c1.replace("-", ""))
-    d = d[(d.md >= lo) & (d.md <= hi)]
+for w in STUDY.windows:
+    d = load_series(STUDY, w.venue, w.cache_tag)
+    d = d[(d.md >= w.lo) & (d.md <= w.hi)]
     h = d.groupby("hour").spd_kt.mean()
-    diurnal[(venue, season)] = pd.Series(h.values, index=(h.index - 4) % 24).sort_index()
+    diurnal[(w.venue, w.season)] = pd.Series(h.values, index=(h.index + STUDY.utc_offset) % 24).sort_index()
 
 # ---------------------------------------------------------------- chart 1: per-year means (SVG)
 YEARS = list(range(2015, 2026))
@@ -620,8 +622,8 @@ def build():
 </section>
 
 <footer>
-Generated from the analysis outputs in <code>studies/gtyc_hyc_2028/outputs/</code> by <code>hrrr_wind/report_html.py</code>.
-Code: <code>hrrr_wind/climatology.py</code>, <code>hrrr_wind/venue_analysis.py</code>. Data: NOAA HRRR via Herbie (AWS); NDBC stations 45020 and 45163.
+Generated from the analysis outputs in <code>studies/gtyc_hyc_2028/outputs/</code> by <code>studies/gtyc_hyc_2028/build_report.py</code>.
+Code: <code>hrrr_wind</code> package. Data: NOAA HRRR via Herbie (AWS); NDBC stations 45020 and 45163.
 </footer>
 </div>
 <div id="tip" role="tooltip"></div>

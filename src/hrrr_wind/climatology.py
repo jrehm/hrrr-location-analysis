@@ -442,7 +442,7 @@ def compute_stats(df):
     return stats
 
 
-def make_summary_figure(df, stats, title, output_path, source_label=""):
+def make_summary_figure(df, stats, title, output_path=None, source_label=""):
     """
     Three-panel summary figure:
       left  — wind rose (polar, full height)
@@ -568,8 +568,10 @@ def make_summary_figure(df, stats, title, output_path, source_label=""):
                 cell.set_text_props(fontweight="bold", color="#333333")
     ax_stats.set_title("Summary Statistics", fontsize=9, fontweight="bold", pad=14)
 
-    fig.savefig(output_path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    if output_path:
+        fig.savefig(output_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+    return fig
 
 
 def print_stats_summary(stats, point_info, radius_nm):

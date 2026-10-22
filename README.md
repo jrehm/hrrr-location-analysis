@@ -111,7 +111,7 @@ python -m hrrr_wind.venue_analysis analyze
 # 4. Validate against NDBC buoys and produce the bias-adjusted summary
 python -m hrrr_wind.venue_analysis validate
 # 5. Build the HTML report
-python -m hrrr_wind.report_html
+python studies/gtyc_hyc_2028/build_report.py
 ```
 
 Paths default to `studies/gtyc_hyc_2028/`; override with `HRRR_WIND_OUT` (output and cache
@@ -145,11 +145,27 @@ See `studies/gtyc_hyc_2028/NOTES.md` for the decisions, bugs, and lessons from t
 ## Repository layout
 
 ```
-src/hrrr_wind/         climatology.py (CLI, presets, stats), venue_analysis.py, report_html.py
-tests/                 pytest unit tests for the pure functions
-studies/gtyc_hyc_2028/ GTYC vs HYC: NOTES.md, outputs/ (CSVs, figures, caches, reports), data/buoys/, slides/
+src/hrrr_wind/         library (see below)
+tests/                 pytest unit tests + a slow golden-file regression (`pytest -m golden`)
+studies/gtyc_hyc_2028/ GTYC vs HYC: study.toml, NOTES.md, build_report.py, outputs/, data/buoys/, slides/
 legacy/                v1.0 and v1.1 scripts; nine_venue_2028/ (superseded first screening and its outputs)
 ```
+
+### Library modules (`src/hrrr_wind/`)
+
+| Module | Role |
+|---|---|
+| `climatology.py` | Single-club CLI, venue presets, point projection, water mask, stats, summary figure |
+| `config.py` | `Study` definition loaded from a `study.toml` (venues, windows, buoys, parameters) |
+| `cache.py` | The only network code: resumable, memory-capped HRRR download into `cache_*.npz` |
+| `stats.py` | Series loading, summaries, year-bootstrap CIs, paired comparison, sensitivity (returns DataFrames) |
+| `validation.py` | NDBC loading, height adjustment, HRRR-vs-buoy metrics, quantile mapping |
+| `plots.py` | Figures (return matplotlib `Figure` objects) |
+| `outputs.py` | Writes results to CSV/PNG |
+| `venue_analysis.py` | Thin command-line wrapper over the above (`--study path/to/study.toml`) |
+
+A new study is a folder with a `study.toml` (copy `studies/gtyc_hyc_2028/study.toml`); no code changes needed.
+`pytest -m golden` re-runs the whole GTYC/HYC study from the committed caches and checks every CSV (about 3 minutes).
 
 ## Related repositories
 
