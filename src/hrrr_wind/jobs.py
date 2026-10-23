@@ -122,6 +122,16 @@ def build_command(study_path, kind, params):
     return cmd
 
 
+LOG_KEEP = 3        # job logs kept per study folder (the newest, including the one being started)
+
+
+def prune_logs(log_dir, keep=LOG_KEEP):
+    """Delete all but the newest ``keep`` job logs in ``log_dir``."""
+    logs = sorted(log_dir.glob("*.log"), key=lambda p: p.stat().st_mtime, reverse=True)
+    for old in logs[keep:]:
+        old.unlink(missing_ok=True)
+
+
 class JobManager:
     def __init__(self, command_builder=build_command):
         self._jobs: dict[str, Job] = {}
@@ -160,6 +170,7 @@ class JobManager:
             job = Job(id=uuid.uuid4().hex[:10], study_id=study_id, kind=kind, params=params)
             log_dir = study.out_dir / "jobs"
             log_dir.mkdir(parents=True, exist_ok=True)
+            prune_logs(log_dir, LOG_KEEP - 1)       # room for this job's log; only one job runs at a time
             job.log_path = log_dir / f"{job.id}.log"
             self._jobs[job.id] = job
         threading.Thread(target=self._run, args=(job, self._command_builder(study_path, kind, params)),

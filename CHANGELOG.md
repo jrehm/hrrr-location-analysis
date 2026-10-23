@@ -8,6 +8,7 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 
 ## [Unreleased]
 ### Fixed
+- Only the last 3 job logs are kept in a study's `jobs/` folder (older ones are deleted when a new job starts).
 - Checkpoint folders (`ckpt_<tag>`) are deleted once a download finishes and its caches are written, and
   rerunning a finished tag does nothing instead of refetching. The Files page no longer shows cache tags.
 - The web app sends `Cache-Control: no-cache` for its static files, so browsers pick up edited scripts and styles

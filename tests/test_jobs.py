@@ -115,3 +115,15 @@ def test_silent_hung_job_is_stopped_and_can_resume(api, monkeypatch):
     jid = client.post(f"/api/studies/{SID}/jobs", json={"kind": "analyze"}).json()["id"]
     j = wait(client, jid, ("failed",), timeout=10)
     assert "stalled" in j["message"] and "Try again" in j["message"]
+
+
+def test_only_the_last_three_logs_are_kept(tmp_path):
+    import os
+    for i in range(5):
+        p = tmp_path / f"old{i}.log"
+        p.write_text("x")
+        os.utime(p, (1000 + i, 1000 + i))
+    (tmp_path / "keep.txt").write_text("not a log")
+    jobs.prune_logs(tmp_path, jobs.LOG_KEEP - 1)        # as done just before a new job's log is created
+    assert sorted(p.name for p in tmp_path.glob("*.log")) == ["old3.log", "old4.log"]
+    assert (tmp_path / "keep.txt").exists()
