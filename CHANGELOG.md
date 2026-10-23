@@ -7,6 +7,8 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 `__version__` in `src/hrrr_wind/__init__.py`; the web app shows it in the footer and `/api/health`.
 
 ## [Unreleased]
+
+## [2.0.0] - 2026-10-23
 ### Fixed
 - The Advanced downloads table on the Venues page failed to render (a missing import after the cache tags were hidden).
 - Only the last 3 job logs are kept in a study's `jobs/` folder (older ones are deleted when a new job starts).
@@ -23,7 +25,7 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 - **Breaking:** the sweet spot is now 5–20 kt (was 5–15) everywhere: stats, usable days, validation bins, the
   single-club CLI and the UI. Output columns are renamed `pct_5_15` -> `pct_5_20` and `pct_ge15` -> `pct_ge20`
   (also `_lo`/`_hi`, `obs_`/`hrrr_` and per-year/paired/sensitivity files); `pct_15_20` is removed. Existing
-  results should be recomputed. Releasing this needs a MAJOR bump (2.0.0). The GTYC/HYC reference study's CSVs,
+  results should be recomputed (the app flags them as out of date). The GTYC/HYC reference study's CSVs,
   figures and report were regenerated, and its sweet-spot conclusion changed (see its NOTES.md).
 - Wind roses and speed-mix bars: blue below 5 kt, three greens for 5–10, 10–15 and 15–20 kt, amber for 20 kt and up.
 - Studies are now tabs across the top of every page, with a `+` tab for a new study (extra studies wrap to another
@@ -65,5 +67,6 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 ## [1.1.0] and [1.0.0]
 - Single-club climatology CLI and the GTYC vs HYC 2028 study (frozen under `legacy/`).
 
-[Unreleased]: https://github.com/jrehm/hrrr-location-analysis/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/jrehm/hrrr-location-analysis/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/jrehm/hrrr-location-analysis/compare/v1.3.1...v2.0.0
 [1.3.1]: https://github.com/jrehm/hrrr-location-analysis/compare/v1.3.0...v1.3.1
