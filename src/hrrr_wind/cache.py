@@ -7,6 +7,7 @@ import gc
 from concurrent.futures import ThreadPoolExecutor
 import logging
 import math
+import shutil
 import time
 from datetime import datetime
 from pathlib import Path
@@ -127,6 +128,9 @@ def build_cache(out_dir, venues, years, tag, start, end, start_hour=0, end_hour=
     lon2d = clim.normalize_lon(ref["longitude"].values)
     land2d = ref[list(ref.data_vars)[0]].values
 
+    if all((out_dir / f"cache_{k}_{tag}.npz").exists() for k in venues):
+        logger.info(f"caches for tag {tag} already exist; nothing to do")   # never overwrite a finished cache
+        return
     clubs = clubs or {}
     slices = {k: club_xy_slices(lat2d, lon2d, *(clubs.get(k) or (clim.YACHT_CLUB_PRESETS[k]["lat"],
                                                                  clim.YACHT_CLUB_PRESETS[k]["lon"])),
@@ -240,6 +244,7 @@ def build_cache(out_dir, venues, years, tag, start, end, start_hour=0, end_hour=
         logger.info(f"saved cache for {key}: {len(t)} times")
     with open(out_dir / f"missing_{tag}.json", "w") as f:
         json.dump(missing_by_year, f, indent=2)
+    shutil.rmtree(ckpt_dir)         # the finished caches hold the same data; checkpoints only matter mid-run
 
 def fetch_land_mask(out_dir, key, lat, lon, year=2024):
     """Grid + land mask around a club from one HRRR file, cached as landmask_<key>.npz.

@@ -14,7 +14,7 @@ function JobRow({ job, onCancel }) {
   const active = job.status === "running" || job.status === "queued";
   const elapsed = (job.finished || Date.now() / 1000) - (job.started || job.created);
   const what = job.kind === "cache"
-    ? `Download ${job.params.venues.join(", ")} ${job.params.start} to ${job.params.end}, ${plural(job.params.years.length, "year")} (${job.params.tag})`
+    ? `Download ${job.params.venues.join(", ")} ${job.params.start} to ${job.params.end}, ${plural(job.params.years.length, "year")}`
     : job.kind === "run_study" ? `Download missing data, analyze and validate (${plural(job.params.downloads.length, "download")})`
     : job.kind === "analyze" ? "Recompute analysis" : "Recompute validation";
   const toggleLog = async () => setLog(log === null ? (await api(`jobs/${job.id}/log`, { lines: 80 })).log : null);
@@ -88,7 +88,7 @@ export function JobsPage({ meta, onChanged }) {
           <div class="row"><button disabled=${busy} onClick=${() => start("analyze")}>Recompute analysis (about 3 min)</button>
             <button disabled=${busy} onClick=${() => start("validate")}>Recompute validation (about 1 min)</button></div></div>
         <div class="card"><h2>Wind caches on disk</h2>
-          <${Table} cols=${[{ head: "Venue", left: true, cell: (c) => c.venue.toUpperCase() }, { head: "Tag", left: true, cell: (c) => c.tag }, { head: "Size", cell: (c) => `${c.mb} MB` }]} rows=${meta.caches} /></div>
+          <${Table} cols=${[{ head: "Venue", left: true, cell: (c) => c.venue.toUpperCase() }, { head: "Years", left: true, cell: (c) => (c.years.length ? yearRanges(c.years) : "unreadable") }, { head: "Size", cell: (c) => `${c.mb} MB` }]} rows=${meta.caches} /></div>
       </div>
     </div>
     ${err && html`<p class="err">${err}</p>`}

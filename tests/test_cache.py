@@ -40,10 +40,11 @@ def test_build_cache_writes_cache_checkpoint_and_progress(tmp_path, monkeypatch)
                          progress=lambda y, i, n: seen.append((y, i, n)))
     c = cachemod.load_cache(tmp_path, "hyc", "t")
     assert len(c["time"]) == 2 * 2 * 24 and c["u"].shape[1:] == c["land"].shape
-    assert (tmp_path / "ckpt_t" / "year_2020.npz").exists()
     assert (tmp_path / "missing_t.json").read_text().count("[]") == 2     # nothing missing
     assert seen == [(2020, 0, 2), (2020, 1, 2), (2021, 0, 2), (2021, 1, 2)]
-    # rerun resumes entirely from checkpoints and gives the same cache
+    assert not (tmp_path / "ckpt_t").exists()          # checkpoints are removed once the caches are written
+    # rerunning a finished tag does nothing (and never refetches or overwrites)
+    monkeypatch.setattr(cachemod, "fetch_wind", lambda *a, **k: pytest.fail("refetched a finished cache"))
     cachemod.build_cache(tmp_path, ["hyc"], [2020, 2021], "t", "09-08", "09-09", chunk_hours=24)
     assert len(cachemod.load_cache(tmp_path, "hyc", "t")["time"]) == 96
 
@@ -97,3 +98,28 @@ def test_network_outage_saves_nothing_for_the_year(tmp_path, monkeypatch):
     monkeypatch.setattr(cachemod, "fetch_wind", fake_fetch)
     cachemod.build_cache(tmp_path, ["hyc"], [2020], "t", "09-08", "09-09", chunk_hours=24)
     assert len(cachemod.load_cache(tmp_path, "hyc", "t")["time"]) == 48
+
+
+def test_interrupted_run_keeps_checkpoints_and_resumes(tmp_path, monkeypatch):
+    monkeypatch.setitem(sys.modules, "herbie", types.SimpleNamespace(Herbie=FakeHerbie))
+    monkeypatch.setattr(cachemod, "RETRY_PAUSE_S", (0,))
+
+    def fail_2021(dates, source, slices, max_threads=50):
+        if dates[0].year == 2021:
+            raise OSError("network is down")
+        return fake_fetch(dates, source, slices)
+
+    monkeypatch.setattr(cachemod, "fetch_wind", fail_2021)
+    with pytest.raises(cachemod.NetworkTrouble):
+        cachemod.build_cache(tmp_path, ["hyc"], [2020, 2021], "t", "09-08", "09-09", chunk_hours=24)
+    assert (tmp_path / "ckpt_t" / "year_2020.npz").exists() and not (tmp_path / "ckpt_t" / "year_2021.npz").exists()
+    seen = []
+
+    def resumed(dates, source, slices, max_threads=50):
+        seen.append(dates[0].year)
+        return fake_fetch(dates, source, slices)
+
+    monkeypatch.setattr(cachemod, "fetch_wind", resumed)
+    cachemod.build_cache(tmp_path, ["hyc"], [2020, 2021], "t", "09-08", "09-09", chunk_hours=24)
+    assert set(seen) == {2021}                          # 2020 came from its checkpoint
+    assert len(cachemod.load_cache(tmp_path, "hyc", "t")["time"]) == 96 and not (tmp_path / "ckpt_t").exists()
