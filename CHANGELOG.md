@@ -8,6 +8,7 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 
 ## [Unreleased]
 ### Fixed
+- The Advanced downloads table on the Venues page failed to render (a missing import after the cache tags were hidden).
 - Only the last 3 job logs are kept in a study's `jobs/` folder (older ones are deleted when a new job starts).
 - Checkpoint folders (`ckpt_<tag>`) are deleted once a download finishes and its caches are written, and
   rerunning a finished tag does nothing instead of refetching. The Files page no longer shows cache tags.
@@ -15,6 +16,10 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
   instead of mixing old and new versions.
 
 ### Changed
+- Study page layout: the Venues tab is now **Inputs** and comes first, with a Years section (the year picker, always
+  shown; read-only for locked studies) above a Venues section. The Compare tab is gone: its tables now sit at the
+  bottom of Overview. Rename is a small pencil icon, and the header's "Edit years" link is removed. Old
+  `#/s/<id>/venues` and `/compare` links still work.
 - **Breaking:** the sweet spot is now 5–20 kt (was 5–15) everywhere: stats, usable days, validation bins, the
   single-club CLI and the UI. Output columns are renamed `pct_5_15` -> `pct_5_20` and `pct_ge15` -> `pct_ge20`
   (also `_lo`/`_hi`, `obs_`/`hrrr_` and per-year/paired/sensitivity files); `pct_15_20` is removed. Existing

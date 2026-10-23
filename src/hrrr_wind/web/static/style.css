@@ -114,3 +114,6 @@ details.adv > summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
 button.danger { color: #c0392b; border-color: #c0392b; }
 
 footer#ver { margin-top: 24px; margin-bottom: 16px; color: var(--muted); font-size: 12px; text-align: right; }
+
+h2.sect { font-size: 20px; margin: 10px 0 0; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+button.icon { padding: 2px 8px; font-size: 14px; line-height: 1.3; border-radius: 6px; }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { api } from "./api.js";
 import { html, Rose, Table, ChartCanvas, chartDefaults, binColors } from "./components.js";
 import { fmt, label, pct, range, seriesColor } from "./util.js";
+import { ComparePage } from "./page_compare.js";
 
 export function useStudyData(meta, version = 0) {
   const [d, setD] = useState(null), [err, setErr] = useState(null);
@@ -66,5 +67,7 @@ export function ResultsPage({ meta, data }) {
             return x ? `${fmt(x.mean)} kt (${fmt(x.pct_ge20, 0)}% ≥20)` : "–"; } }))]}
           rows=${years.map((year) => ({ year }))} /></details></div>
     <div class="card"><h2>Time of day</h2><${ChartCanvas} config=${dCfg} /></div>
+    <h2 class="sect">Comparison</h2>
+    <${ComparePage} meta=${meta} data=${data} />
   </div>`;
 }

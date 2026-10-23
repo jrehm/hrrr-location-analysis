@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { api, post } from "./api.js";
 import { html, Table } from "./components.js";
-import { label } from "./util.js";
+import { label, yearRanges } from "./util.js";
 
 const FILES_PER_SECOND = 1.9;     // observed download rate; for the estimate only
 const MMDD = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;

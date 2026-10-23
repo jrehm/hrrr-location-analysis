@@ -104,7 +104,7 @@ trusting results. To add a club, add an entry to `YACHT_CLUB_PRESETS` in
 python -m hrrr_wind.api            # then open http://127.0.0.1:8000/
 ```
 
-Pages: **Sample point** (satellite map with the club, bearing line, sample point and the HRRR water/land cells being averaged, plus instant racing-hour stats for any bearing, distance and box size), **Results** (wind roses, year by year, time of day), **Compare** (paired difference with confidence intervals; sensitivity to the sample point), **Validation** (HRRR vs buoys; bias-adjusted range) and **Files** (downloads, data completeness).
+Pages: **Inputs** (the study's years and venues; each venue's **sample point** page has a satellite map with the club, bearing line, sample point and the HRRR water/land cells being averaged, plus instant racing-hour stats for any bearing, distance and box size), **Overview** (wind roses, year by year, time of day, then the comparison: paired difference with confidence intervals, and sensitivity to the sample point), **Validation** (HRRR vs buoys; bias-adjusted range) and **Files** (downloads, data completeness).
 
 Studies in `studies/*/study.toml` are discovered automatically (`HRRR_WIND_STUDIES` points at a different folder).
 

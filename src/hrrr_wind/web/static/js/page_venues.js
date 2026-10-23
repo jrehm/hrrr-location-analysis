@@ -4,6 +4,7 @@ import { html } from "./components.js";
 import { DateSelect } from "./page_new.js";
 import { MONTHS, label, yearRanges } from "./util.js";
 import { JobsPage } from "./page_jobs.js";
+import { YearsEditor } from "./years.js";
 
 const nice = (d) => `${MONTHS[+d.slice(0, 2) - 1]} ${+d.slice(3)}`;
 
@@ -57,6 +58,10 @@ export function VenuesPage({ meta, onChanged, onEdited }) {
     setWorking(false);
   };
   return html`<div class="grid">
+    <h2 class="sect">Years</h2>
+    <${YearsEditor} meta=${meta} readOnly=${!canEdit}
+      onSaved=${async () => { await onEdited("Years updated. See the bar above for what happens next."); }} />
+    <h2 class="sect">Venues</h2>
     <div class="row" style="justify-content:space-between;flex-wrap:wrap">
       <p class="muted small" style="margin:0">${meta.locked ? "This is the locked reference study: it can be explored but not changed. Copy it to a new study to extend it." : "Venues are the places being compared. Each has one or more windows (the dates analysed every year). Nothing you remove here is deleted from disk."}</p>
       ${canEdit && html`<a href=${`#/s/${meta.id}/add`}><button>+ Add venue</button></a>`}</div>
