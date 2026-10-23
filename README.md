@@ -26,7 +26,7 @@ nine-venue screening** (`legacy/`), and the **GTYC vs HYC study** (`studies/gtyc
 3. **Pulls hourly 10 m wind (analysis hour, F00)** for a calendar window repeated over
    several years, filtered to racing hours (UTC), with a missing-data report
    (expected vs retrieved hours, listing the gaps).
-4. **Reports** speed bins (<5, 5–15, ≥15 kt), median/90th percentile, direction (circular
+4. **Reports** speed bins (<5, 5–20 "sweet spot", ≥20 kt), median/90th percentile, direction (circular
    mean, steadiness R), wind rose, and the hourly time series.
 
 The study driver (`venue_analysis`) adds a sample-point sensitivity grid, year-resampling

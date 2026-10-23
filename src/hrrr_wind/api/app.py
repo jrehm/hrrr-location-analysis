@@ -89,6 +89,8 @@ def is_stale(sid, s, summary):
     """Results older than the study's definition. Uses the fingerprint stored with the results (so a
     rename does not count); older outputs without one fall back to comparing file times."""
     state = s.out_dir / "analysis_state.json"
+    if "pct_5_20" not in summary.read_text().split("\n", 1)[0]:
+        return True                     # written before the 5-20 kt sweet spot: columns are missing
     if state.exists():
         try:
             return json.loads(state.read_text()).get("fingerprint") != s.fingerprint()
@@ -579,4 +581,12 @@ def health():
     return {"ok": True, "readonly": is_readonly(), "version": __version__}
 
 
-app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")
+class RevalidatedStaticFiles(StaticFiles):
+    """Static files that browsers must revalidate (ETag), so an edited .js/.css is never served stale."""
+    async def get_response(self, path, scope):
+        resp = await super().get_response(path, scope)
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
+
+app.mount("/", RevalidatedStaticFiles(directory=STATIC, html=True), name="static")

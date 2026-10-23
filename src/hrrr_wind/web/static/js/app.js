@@ -2,7 +2,6 @@ import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { api, patch } from "./api.js";
 import { html } from "./components.js";
-import { HomePage } from "./page_home.js";
 import { SetupPage } from "./page_setup.js";
 import { ResultsPage, useStudyData } from "./page_results.js";
 import { ComparePage } from "./page_compare.js";
@@ -16,7 +15,7 @@ import { YearsEditor, yearsSummary } from "./years.js";
 const theme = new URLSearchParams(location.search).get("theme");  // ?theme=dark|light forces a theme
 if (theme) document.documentElement.dataset.theme = theme;
 
-// Routes: #/ (all studies), #/new, #/s/<id>/<page>[/<arg>]
+// Routes: #/ (opens the first study), #/new, #/s/<id>/<page>[/<arg>]
 const parse = () => {
   const p = location.hash.replace(/^#\/?/, "").split("/");
   if (p[0] === "new") return { page: "new" };
@@ -27,6 +26,17 @@ const go = (path) => { location.hash = path; };
 
 const TABS = [["overview", "Overview"], ["venues", "Venues"], ["compare", "Compare"], ["validation", "Validation"], ["files", "Files"]];
 const PAGES = { overview: ResultsPage, compare: ComparePage, validation: ValidationPage, files: FilesPage };
+
+// A tab per study plus a "+" tab; extra studies wrap onto further rows. A dot flags studies that need attention.
+const DOT = { running: ["running", ""], stale: ["results out of date", "warn"], no_data: ["no data yet", "warn"],
+  partial: ["data incomplete", "warn"], no_results: ["not analyzed", "warn"] };
+function StudyTabs({ studies, sid, readonly, isNew }) {
+  return html`<nav class="studybar"><div class="wrap">${studies.map((s) => { const dot = DOT[s.state];
+    return html`<a href=${`#/s/${s.id}/overview`} class=${s.id === sid ? "on" : ""} title=${s.name + (dot ? ` (${dot[0]})` : "")}>
+      <span class="nm">${s.name}</span>${s.locked && html`<span class="lock" aria-label="locked reference study">🔒</span>`}
+      ${dot && html`<span class=${"dot " + dot[1]} />`}</a>`; })}
+    ${!readonly && html`<a href="#/new" class=${"plus" + (isNew ? " on" : "")} title="New study" aria-label="New study">+</a>`}</div></nav>`;
+}
 
 function App() {
   const [route, setRoute] = useState(parse());
@@ -47,9 +57,14 @@ function App() {
   };
   useEffect(() => { // load the study named in the URL
     setMeta(null); setNotice(null); setRenaming(null); setEditYears(false);
-    if (sid) api(`studies/${sid}`).then(setMeta).catch(() => go("#/"));
+    if (sid) api(`studies/${sid}`).then(setMeta).catch(() => api("studies").then((l) => {   // unknown or broken study: open another
+      const other = l.find((s) => s.id !== sid); go(other ? `#/s/${other.id}/overview` : "#/new");
+    }));
   }, [sid]);
-  useEffect(() => { if (!sid) api("studies").then(setStudies).catch(() => {}); }, [route.page]); // fresh states on the home page
+  useEffect(() => { api("studies").then(setStudies).catch(() => {}); }, [route.page]); // fresh tab states on each page change
+  useEffect(() => { // the root opens the first study (or the new-study page when there are none)
+    if (route.page === "home" && studies) go(studies.length ? `#/s/${studies[0].id}/overview` : "#/new");
+  }, [route.page, studies]);
 
   const { d, err: derr } = useStudyData(meta, version);
   if (err) return html`<main class="wrap"><p class="err">Could not load: ${err}</p></main>`;
@@ -61,17 +76,16 @@ function App() {
     catch (e) { setNotice(`Could not rename: ${e.message}`); }
   };
   const done = async (id, text) => { await refresh(id); setNotice(text); go(`#/s/${id}/${text.startsWith("Added") ? "venues" : "overview"}`); };
-  const Shell = (title, body, sub) => html`<header class="top"><div class="wrap"><div class="crumb"><a href="#/">All studies</a>${sub ? " › " + sub : ""}</div>
-      <h1>${title}</h1>${readonly && html`<span class="badge">read-only demo</span>`}</div><div style="height:12px"></div></header>
+  const bar = html`<${StudyTabs} studies=${studies} sid=${route.page === "new" ? null : sid} isNew=${route.page === "new"} readonly=${readonly} />`;
+  const Shell = (title, body) => html`${bar}<header class="top"><div class="wrap"><h1>${title}</h1>
+      ${readonly && html`<span class="badge">read-only demo</span>`}</div><div style="height:12px"></div></header>
     <main class="wrap">${body}</main>`;
 
-  if (route.page === "home") return html`<header class="top"><div class="wrap"><h1>HRRR Wind Analysis</h1><span class="sub">Wind climatology for sailing venues</span>
-      ${readonly && html`<span class="badge">read-only demo</span>`}</div><div style="height:12px"></div></header>
-    <main class="wrap"><${HomePage} studies=${studies} readonly=${readonly} /></main>`;
+  if (route.page === "home") return html`<main class="wrap"><p class="muted">Loading…</p></main>`;
   if (route.page === "new") return Shell("New study", html`<${NewStudyPage} studies=${studies} mode="new"
     onDone=${(id) => done(id, "Study created.")} />`);
 
-  if (!meta) return html`<main class="wrap"><p class="muted">Loading…</p></main>`;
+  if (!meta) return html`${bar}<main class="wrap"><p class="muted">Loading…</p></main>`;
   const canEdit = !meta.readonly && !meta.locked;
   const tabs = TABS.filter(([k]) => !(k === "validation" && !meta.buoys.length));
   const tab = route.page === "venue" || route.page === "add" ? "venues" : route.page;
@@ -85,8 +99,7 @@ function App() {
   else if (!d) body = html`<p class="muted">Loading results…</p>`;
   else body = html`<${Page} meta=${meta} data=${d} />`;
 
-  return html`<header class="top"><div class="wrap">
-      <div class="crumb"><a href="#/">All studies</a></div>
+  return html`${bar}<header class="top"><div class="wrap">
       ${renaming === null ? html`<h1>${meta.name}</h1>${canEdit && html`<a href="#" class="small" onClick=${(e) => { e.preventDefault(); setRenaming(meta.name); }}>Rename</a>`}`
         : html`<div class="row" style="flex:1;min-width:260px"><input type="text" maxlength="80" value=${renaming} onInput=${(e) => setRenaming(e.target.value)}
             onKeyDown=${(e) => e.key === "Enter" && rename()} /><button class="primary" onClick=${rename}>Save</button><button onClick=${() => setRenaming(null)}>Cancel</button></div>`}

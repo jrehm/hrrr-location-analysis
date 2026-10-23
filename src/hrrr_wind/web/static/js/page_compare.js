@@ -1,14 +1,14 @@
 import { html, Table } from "./components.js";
 import { fmt, label, range } from "./util.js";
 
-const nice = { mean_kt: "Mean wind (kt)", pct_5_15: "Share in 5–15 kt (points)", pct_ge15: "Share at 15 kt or more (points)" };
+const nice = { mean_kt: "Mean wind (kt)", pct_5_20: "Share in 5–20 kt (points)", pct_ge20: "Share at 20 kt or more (points)" };
 
 export function ComparePage({ meta, data }) {
   const { paired, band } = data.results;
   const groups = [...new Set(band.map((b) => `${b.venue}|${b.season}`))].map((k) => {
     const [venue, season] = k.split("|"), rows = band.filter((b) => b.venue === venue && b.season === season);
     const mm = (f) => [Math.min(...rows.map(f)), Math.max(...rows.map(f))];
-    return { venue, season, n: rows.length, mean: mm((r) => r.mean), lt5: mm((r) => r.pct_lt5), mid: mm((r) => r.pct_5_15), ge15: mm((r) => r.pct_ge15) };
+    return { venue, season, n: rows.length, mean: mm((r) => r.mean), lt5: mm((r) => r.pct_lt5), mid: mm((r) => r.pct_5_20), ge20: mm((r) => r.pct_ge20) };
   });
   return html`<div class="grid">
     ${paired.map((p) => html`<div class="card"><h2>${p.a.toUpperCase()} minus ${p.b.toUpperCase()}, ${label("", p.season).trim()}</h2>
@@ -25,8 +25,8 @@ export function ComparePage({ meta, data }) {
         { head: "Window", cell: (g) => label(g.venue, g.season) },
         { head: "Mean (kt)", cell: (g) => range(...g.mean) },
         { head: "< 5 kt (%)", cell: (g) => range(...g.lt5, 0) },
-        { head: "5–15 kt (%)", cell: (g) => range(...g.mid, 0) },
-        { head: "≥ 15 kt (%)", cell: (g) => range(...g.ge15) },
+        { head: "5–20 kt (%)", cell: (g) => range(...g.mid, 0) },
+        { head: "≥ 20 kt (%)", cell: (g) => range(...g.ge20) },
         { head: "Combos", cell: (g) => g.n }]} rows=${groups} /></div>
   </div>`;
 }

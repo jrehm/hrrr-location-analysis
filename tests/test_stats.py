@@ -18,7 +18,7 @@ def test_study_config_loads():
 
 def test_summarize_bins_and_direction():
     d = stats.summarize([2, 6, 10, 16, 21], [0, 0, 0, 0, 0])
-    assert d["pct_lt5"] == 20 and d["pct_5_15"] == 40 and d["pct_15_20"] == 20
+    assert d["pct_lt5"] == 20 and d["pct_5_20"] == 60
     assert d["pct_ge20"] == 20 and d["R"] == pytest.approx(1.0) and d["dom_dir"] % 360 == 0
 
 
@@ -33,6 +33,9 @@ def test_usable_day_needs_three_consecutive_sweet_spot_hours():
     pct, n = stats.usable_day_share(pd.concat([good, bad]), race_hours=7)
     assert (pct, n) == (50.0, 2)
     assert stats.usable_day_share(_day([6, 7, 8]), race_hours=7)[1] == 0   # incomplete day
+    # the sweet spot runs 5 up to (not including) 20 kt
+    assert stats.usable_day_share(_day([5, 12, 19.9, 3, 3, 3, 3]), race_hours=7)[0] == 100.0
+    assert stats.usable_day_share(_day([20, 12, 25, 3, 3, 3, 3]), race_hours=7)[0] == 0.0
 
 
 def test_box_series_water_only_and_nearest():

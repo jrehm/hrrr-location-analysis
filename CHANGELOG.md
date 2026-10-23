@@ -7,7 +7,19 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 `__version__` in `src/hrrr_wind/__init__.py`; the web app shows it in the footer and `/api/health`.
 
 ## [Unreleased]
+### Fixed
+- The web app sends `Cache-Control: no-cache` for its static files, so browsers pick up edited scripts and styles
+  instead of mixing old and new versions.
+
 ### Changed
+- **Breaking:** the sweet spot is now 5–20 kt (was 5–15) everywhere: stats, usable days, validation bins, the
+  single-club CLI and the UI. Output columns are renamed `pct_5_15` -> `pct_5_20` and `pct_ge15` -> `pct_ge20`
+  (also `_lo`/`_hi`, `obs_`/`hrrr_` and per-year/paired/sensitivity files); `pct_15_20` is removed. Existing
+  results should be recomputed. Releasing this needs a MAJOR bump (2.0.0). The GTYC/HYC reference study's CSVs,
+  figures and report were regenerated, and its sweet-spot conclusion changed (see its NOTES.md).
+- Wind roses and speed-mix bars: blue below 5 kt, three greens for 5–10, 10–15 and 15–20 kt, amber for 20 kt and up.
+- Studies are now tabs across the top of every page, with a `+` tab for a new study (extra studies wrap to another
+  row); the home page is gone and the app opens on the first study.
 - Faster downloads: each hour is cropped to the venue boxes as soon as it is decoded (no full-CONUS
   stack per chunk), and the next chunk downloads while the previous one is stored.
 

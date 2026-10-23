@@ -54,8 +54,8 @@ export function ResultsPage({ meta, data }) {
       <h2>${label(w.venue, w.season)} <span class="small muted">${w.core[0]} to ${w.core[1]}</span></h2>
       <div class="stat"><div><b>${fmt(c.mean)} kt</b><span class="small muted">mean (${range(c.mean_lo, c.mean_hi)})</span></div>
         <div><b>${pct(c.usable_day_pct)}</b><span class="small muted">usable days</span></div></div>
-      <div class="bar">${[c.pct_lt5, c.pct_5_15, c.pct_15_20 + c.pct_ge20].map((v, k) => html`<i title=${pct(v)} style=${{ width: v + "%", background: [colors[1], colors[3], colors[4]][k] }}></i>`)}</div>
-      <div class="legend"><span>${"<"} 5 kt ${pct(c.pct_lt5)}</span><span>5–15 kt ${pct(c.pct_5_15)}</span><span>≥ 15 kt ${pct(c.pct_15_20 + c.pct_ge20, 1)}</span></div>
+      <div class="bar">${[c.pct_lt5, c.pct_5_20, c.pct_ge20].map((v, k) => html`<i title=${pct(v)} style=${{ width: v + "%", background: [colors[0], colors[2], colors[4]][k] }}></i>`)}</div>
+      <div class="legend"><span>${"<"} 5 kt ${pct(c.pct_lt5)}</span><span>5–20 kt ${pct(c.pct_5_20)}</span><span>≥ 20 kt ${pct(c.pct_ge20, 1)}</span></div>
       <${Rose} data=${roses[i]} maxPct=${roseMax} />
       <p class="small muted">${c.n} racing hours. Rose bars show % of hours by direction the wind blows from, on a common scale for all windows.</p>
     </div>`; })}</div>
@@ -63,7 +63,7 @@ export function ResultsPage({ meta, data }) {
       <details><summary class="small muted">Table view</summary>
         <${Table} cols=${[{ head: "Year", cell: (r) => r.year }, ...meta.windows.map((w) => ({ head: label(w.venue, w.season),
           cell: (r) => { const x = R.per_year.find((p) => p.venue === w.venue && p.season === w.season && p.year === r.year);
-            return x ? `${fmt(x.mean)} kt (${fmt(x.pct_ge15, 0)}% ≥15)` : "–"; } }))]}
+            return x ? `${fmt(x.mean)} kt (${fmt(x.pct_ge20, 0)}% ≥20)` : "–"; } }))]}
           rows=${years.map((year) => ({ year }))} /></details></div>
     <div class="card"><h2>Time of day</h2><${ChartCanvas} config=${dCfg} /></div>
   </div>`;

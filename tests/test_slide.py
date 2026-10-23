@@ -30,7 +30,7 @@ def test_slide_is_native_and_matches_study_numbers(tmp_path):
     dist = list(shapes["Speed distribution"].chart.plots[0].series[0].values)
     assert dist[0] == pytest.approx(25.2, abs=0.05) and sum(dist) == pytest.approx(100, abs=0.2)
     cells = [[c.text for c in r.cells] for r in shapes["Summary statistics"].table.rows]
-    assert cells[0] == ["Mean / median", "8.7 / 8.1 kt"] and cells[4] == ["15 kt or more", "9.8%"]
+    assert cells[0] == ["Mean / median", "8.7 / 8.1 kt"] and cells[4] == ["20 kt or more", "0.0%"]
     assert not shapes["Wind rose"].chart.has_title and not shapes["Speed distribution"].chart.has_title
 
 

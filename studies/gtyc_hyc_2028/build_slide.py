@@ -33,7 +33,7 @@ from hrrr_wind.stats import load_series, windrose_table
 HERE = Path(__file__).parent
 FONT = "Calibri"
 INK, MUTED, GRID = "1F2937", "6B7280", "D1D5DB"
-BIN_COLORS = ["482677", "3B5B92", "238A8D", "29AF7F", "84D44B"]    # slow to fast
+BIN_COLORS = ["5B9BD8", "9AD8A8", "4CB36E", "1F8A48", "E08A2B"]    # blue light air, greens 5-20 kt, amber 20+
 BIN_NAMES = ["0–5 kt", "5–10 kt", "10–15 kt", "15–20 kt", "20+ kt"]
 SEASONS = {"sep": ("September", "Sept"), "jun": ("June", "June")}
 MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
@@ -157,9 +157,9 @@ def build_slide(study, venue, season, out_path):
     rows = [("Mean / median", f"{s['mean']:.1f} / {s['median']:.1f} kt"),
             ("90th percentile / max", f"{s['p90']:.1f} / {s['max']:.1f} kt"),
             ("Below 5 kt", f"{s['pct_lt5']:.0f}%"),
-            ("5–15 kt", f"{s['pct_5_15']:.0f}%"),
-            ("15 kt or more", f"{s['pct_15_20'] + s['pct_ge20']:.1f}%"),
-            ("Usable days (3+ h in 5–15 kt)", f"{s['usable_day_pct']:.0f}%"),
+            ("5–20 kt", f"{s['pct_5_20']:.0f}%"),
+            ("20 kt or more", f"{s['pct_ge20']:.1f}%"),
+            ("Usable days (3+ h in 5–20 kt)", f"{s['usable_day_pct']:.0f}%"),
             ("Direction steadiness R", f"{s['R']:.2f}")]
     shape = slide.shapes.add_table(len(rows), 2, Inches(7.3), Inches(4.65), Inches(5.4), Inches(0.3 * len(rows)))
     shape.name = "Summary statistics"

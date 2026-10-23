@@ -99,8 +99,8 @@ export function SetupPage({ meta, venueKey, onSaved }) {
             <div><b>${fmt(q.median)}</b><span class="small muted">median</span></div>
             <div><b>${fmt(q.p90)}</b><span class="small muted">90th pct</span></div>
             <div><b>${q.n_cells}</b><span class="small muted">water cells</span></div></div>
-          <div class="bar">${[q.pct_lt5, q.pct_5_15, q.pct_15_20 + q.pct_ge20].map((v, i) => html`<i title=${pct(v)} style=${{ width: v + "%", background: [colors[1], colors[3], colors[4]][i] }}></i>`)}</div>
-          <div class="legend"><span>${"<"} 5 kt ${pct(q.pct_lt5)}</span><span>5–15 kt ${pct(q.pct_5_15)}</span><span>≥ 15 kt ${pct(q.pct_15_20 + q.pct_ge20)}</span></div>
+          <div class="bar">${[q.pct_lt5, q.pct_5_20, q.pct_ge20].map((v, i) => html`<i title=${pct(v)} style=${{ width: v + "%", background: [colors[0], colors[2], colors[4]][i] }}></i>`)}</div>
+          <div class="legend"><span>${"<"} 5 kt ${pct(q.pct_lt5)}</span><span>5–20 kt ${pct(q.pct_5_20)}</span><span>≥ 20 kt ${pct(q.pct_ge20)}</span></div>
           <p class="small muted">${q.n} hours, ${meta.race_label}, no confidence intervals. Raw HRRR runs low against buoys (see Validation).</p>`}
       </div>
     </div>

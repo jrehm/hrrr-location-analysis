@@ -75,7 +75,7 @@ def circ_diff(a, b):
 
 
 def category(kt):
-    return np.where(kt < 5, 0, np.where(kt < 15, 1, 2))
+    return np.where(kt < 5, 0, np.where(kt < 20, 1, 2))
 
 
 def pair_metrics(p, label):
@@ -92,11 +92,11 @@ def pair_metrics(p, label):
         "dir_bias_deg": float(d[strong].mean()) if strong.any() else np.nan,
         "dir_mae_deg": float(np.abs(d[strong]).mean()) if strong.any() else np.nan,
         "obs_pct_lt5": 100 * float((cat_o == 0).mean()),
-        "obs_pct_5_15": 100 * float((cat_o == 1).mean()),
-        "obs_pct_ge15": 100 * float((cat_o == 2).mean()),
+        "obs_pct_5_20": 100 * float((cat_o == 1).mean()),
+        "obs_pct_ge20": 100 * float((cat_o == 2).mean()),
         "hrrr_pct_lt5": 100 * float((cat_h == 0).mean()),
-        "hrrr_pct_5_15": 100 * float((cat_h == 1).mean()),
-        "hrrr_pct_ge15": 100 * float((cat_h == 2).mean()),
+        "hrrr_pct_5_20": 100 * float((cat_h == 1).mean()),
+        "hrrr_pct_ge20": 100 * float((cat_h == 2).mean()),
     }
 
 
@@ -175,6 +175,6 @@ def run_validation(study, progress=None):
                     "n_fit_pairs": len(fit), "n": len(v), "mean": v.mean(),
                     "median": np.median(v), "p90": np.percentile(v, 90),
                     "pct_lt5": 100 * (v < 5).mean(),
-                    "pct_5_15": 100 * ((v >= 5) & (v < 15)).mean(),
-                    "pct_ge15": 100 * (v >= 15).mean()})
+                    "pct_5_20": 100 * ((v >= 5) & (v < 20)).mean(),
+                    "pct_ge20": 100 * (v >= 20).mean()})
     return ValidationResults(pd.DataFrame(metric_rows), pd.DataFrame(adj_rows), scatter)

@@ -422,8 +422,8 @@ def compute_stats(df):
         "max_speed_kt": float(speed_kt.max()),
         "p90_speed_kt": float(speed_kt.quantile(0.9)),
         "pct_under_5kt": float((speed_kt < 5).mean() * 100),
-        "pct_5_to_15kt": float(((speed_kt >= 5) & (speed_kt < 15)).mean() * 100),
-        "pct_over_15kt": float((speed_kt >= 15).mean() * 100),
+        "pct_5_to_20kt": float(((speed_kt >= 5) & (speed_kt < 20)).mean() * 100),
+        "pct_over_20kt": float((speed_kt >= 20).mean() * 100),
     }
 
     if df["gust_ms"].notna().any():
@@ -455,7 +455,8 @@ def make_summary_figure(df, stats, title, output_path=None, source_label=""):
 
     speed_bins   = [0, 5, 10, 15, 20, 25, np.inf]
     speed_labels = ["0-5", "5-10", "10-15", "15-20", "20-25", "25+"]
-    colors = plt.cm.viridis(np.linspace(0.1, 0.95, len(speed_labels)))
+    # blue = light air, greens = the 5-20 kt sweet spot, amber/red = strong
+    colors = ["#5b9bd8", "#a9dfb8", "#55b878", "#1f8a48", "#d9822b", "#c0392b"]
 
     fig = plt.figure(figsize=(14, 7))
     gs  = fig.add_gridspec(
@@ -542,8 +543,8 @@ def make_summary_figure(df, stats, title, output_path=None, source_label=""):
         ("90th pct",      f"{stats['p90_speed_kt']:.1f} kt"),
         ("Max speed",     f"{stats['max_speed_kt']:.1f} kt"),
         ("< 5 kt",        f"{stats['pct_under_5kt']:.0f}%"),
-        ("5-15 kt",       f"{stats['pct_5_to_15kt']:.0f}%"),
-        (">= 15 kt",      f"{stats['pct_over_15kt']:.0f}%"),
+        ("5-20 kt",       f"{stats['pct_5_to_20kt']:.0f}%"),
+        (">= 20 kt",      f"{stats['pct_over_20kt']:.0f}%"),
         ("Dom. dir.",     f"{stats['dominant_direction_deg']:.0f} deg"),
         ("Steadiness R",  f"{stats['direction_steadiness_R']:.2f}  (0=variable, 1=steady)"),
     ]
@@ -589,8 +590,8 @@ def print_stats_summary(stats, point_info, radius_nm):
     print(f"\nWind Speed (knots):")
     print(f"  Mean: {stats['mean_speed_kt']:.1f}  Median: {stats['median_speed_kt']:.1f}  "
           f"Max: {stats['max_speed_kt']:.1f}  90th pct: {stats['p90_speed_kt']:.1f}")
-    print(f"  < 5kt: {stats['pct_under_5kt']:.1f}%   5-15kt: {stats['pct_5_to_15kt']:.1f}%   "
-          f">=15kt: {stats['pct_over_15kt']:.1f}%")
+    print(f"  < 5kt: {stats['pct_under_5kt']:.1f}%   5-20kt: {stats['pct_5_to_20kt']:.1f}%   "
+          f">=20kt: {stats['pct_over_20kt']:.1f}%")
     if "mean_gust_kt" in stats:
         print(f"\nGust (knots): Mean {stats['mean_gust_kt']:.1f}  Max {stats['max_gust_kt']:.1f}")
     print(f"\nDominant direction: {stats['dominant_direction_deg']:.0f}° "

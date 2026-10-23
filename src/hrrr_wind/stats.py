@@ -56,8 +56,7 @@ def summarize(spd, direction):
         "n": int(len(spd)), "mean": spd.mean(), "median": np.median(spd),
         "p10": np.quantile(spd, 0.1), "p90": np.quantile(spd, 0.9), "max": spd.max(),
         "pct_lt5": 100 * (spd < 5).mean(),
-        "pct_5_15": 100 * ((spd >= 5) & (spd < 15)).mean(),
-        "pct_15_20": 100 * ((spd >= 15) & (spd < 20)).mean(),
+        "pct_5_20": 100 * ((spd >= 5) & (spd < 20)).mean(),
         "pct_ge20": 100 * (spd >= 20).mean(),
         "dom_dir": math.degrees(math.atan2(sm, cm)) % 360,
         "R": math.hypot(sm, cm),
@@ -88,7 +87,7 @@ def windrose_table(spd, direction):
 
 
 def usable_day_share(df, race_hours, min_run=3):
-    """Share of days with >= min_run consecutive racing hours in 5-15 kt.
+    """Share of days with >= min_run consecutive racing hours in 5-20 kt.
 
     Days with fewer than ``race_hours`` hours present are skipped rather than counted.
     """
@@ -100,7 +99,7 @@ def usable_day_share(df, race_hours, min_run=3):
         if len(g) < race_hours:
             continue
         days += 1
-        flag = ((g["spd_kt"] >= 5) & (g["spd_kt"] < 15)).values
+        flag = ((g["spd_kt"] >= 5) & (g["spd_kt"] < 20)).values
         run = best = 0
         for f in flag:
             run = run + 1 if f else 0
@@ -113,8 +112,8 @@ def stat_fns(race_hours):
     return {
         "mean": lambda d: d["spd_kt"].mean(),
         "pct_lt5": lambda d: 100 * (d["spd_kt"] < 5).mean(),
-        "pct_5_15": lambda d: 100 * ((d["spd_kt"] >= 5) & (d["spd_kt"] < 15)).mean(),
-        "pct_ge15": lambda d: 100 * (d["spd_kt"] >= 15).mean(),
+        "pct_5_20": lambda d: 100 * ((d["spd_kt"] >= 5) & (d["spd_kt"] < 20)).mean(),
+        "pct_ge20": lambda d: 100 * (d["spd_kt"] >= 20).mean(),
         "usable_day": lambda d: usable_day_share(d, race_hours)[0],
     }
 
@@ -159,8 +158,8 @@ def sensitivity_grid(study, tag, venues=None):
                         "n_obs": len(df), "mean_kt": s.mean(), "median_kt": s.median(),
                         "p90_kt": s.quantile(0.9),
                         "pct_lt5": 100 * (s < 5).mean(),
-                        "pct_5_15": 100 * ((s >= 5) & (s < 15)).mean(),
-                        "pct_ge15": 100 * (s >= 15).mean(),
+                        "pct_5_20": 100 * ((s >= 5) & (s < 20)).mean(),
+                        "pct_ge20": 100 * (s >= 20).mean(),
                     })
     return pd.DataFrame(rows)
 
@@ -180,8 +179,8 @@ def _day_table(race, prefix):
     return race.groupby("date").agg(**{
         "year": ("year", "first"),
         f"{prefix}_mean": ("spd_kt", "mean"),
-        f"{prefix}_5_15": ("spd_kt", lambda s: 100 * ((s >= 5) & (s < 15)).mean()),
-        f"{prefix}_ge15": ("spd_kt", lambda s: 100 * (s >= 15).mean())})
+        f"{prefix}_5_20": ("spd_kt", lambda s: 100 * ((s >= 5) & (s < 20)).mean()),
+        f"{prefix}_ge20": ("spd_kt", lambda s: 100 * (s >= 20).mean())})
 
 
 def paired_comparison(race_a, race_b, a_name, b_name, rng, B):
@@ -190,8 +189,8 @@ def paired_comparison(race_a, race_b, a_name, b_name, rng, B):
     pb = _day_table(race_b, "b").drop(columns="year")
     pair = pa.join(pb, how="inner")
     rows = []
-    for m, (x, y) in {"mean_kt": ("a_mean", "b_mean"), "pct_5_15": ("a_5_15", "b_5_15"),
-                      "pct_ge15": ("a_ge15", "b_ge15")}.items():
+    for m, (x, y) in {"mean_kt": ("a_mean", "b_mean"), "pct_5_20": ("a_5_20", "b_5_20"),
+                      "pct_ge20": ("a_ge20", "b_ge20")}.items():
         diff = pair[x] - pair[y]
         years = pair["year"].unique()
         boots = []
@@ -246,8 +245,8 @@ def run_analysis(study, progress=None):
                     s = summarize(g["spd_kt"], g["dir"])
                     yearrows.append({"venue": w.venue, "season": w.season, "year": y,
                                      "n": s["n"], "mean": s["mean"],
-                                     "pct_5_15": s["pct_5_15"],
-                                     "pct_ge15": 100 * (g["spd_kt"] >= 15).mean(),
+                                     "pct_5_20": s["pct_5_20"],
+                                     "pct_ge20": 100 * (g["spd_kt"] >= 20).mean(),
                                      "pct_lt5": s["pct_lt5"]})
                 res.diurnal[(w.venue, w.season)] = d.groupby("hour")["spd_kt"].mean()
                 exp = len(d.groupby("date")) * 24
@@ -278,7 +277,7 @@ def run_analysis(study, progress=None):
                 band.append({"venue": w.venue, "season": w.season, "offshore_nm": off,
                              "radius_nm": rad, "n_cells": d.attrs["n_cells"],
                              "mean": st["mean"], "pct_lt5": st["pct_lt5"],
-                             "pct_5_15": st["pct_5_15"],
-                             "pct_ge15": st["pct_15_20"] + st["pct_ge20"]})
+                             "pct_5_20": st["pct_5_20"],
+                             "pct_ge20": st["pct_ge20"]})
     res.band = pd.DataFrame(band)
     return res

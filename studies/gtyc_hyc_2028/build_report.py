@@ -81,8 +81,8 @@ def table(headers, rows, cls="", first_left=True):
 
 
 # ---------------------------------------------------------------- derived numbers
-def ge15(r):
-    return r["pct_15_20"] + r["pct_ge20"]
+def ge20(r):
+    return r["pct_ge20"]
 
 
 core = {(v, s): row(v, s) for v, s, _ in SERIES}
@@ -144,7 +144,7 @@ def chart_per_year():
 
 # ---------------------------------------------------------------- chart 2: speed mix raw vs adjusted
 BIN_COLORS = ["var(--r1)", "var(--r2)", "var(--r3)"]
-BIN_NAMES = ["< 5 kt (light)", "5–15 kt (sweet spot)", "≥ 15 kt (heavy)"]
+BIN_NAMES = ["< 5 kt (light)", "5–20 kt (sweet spot)", "≥ 20 kt (heavy)"]
 
 
 def chart_mix():
@@ -172,7 +172,7 @@ def chart_mix():
             s.append(f'<text class="rowsub" x="{L - 12}" y="{yc + 6:.1f}" text-anchor="end">{ver}</text>')
         else:
             s.append(f'<text class="rowsub" x="{L - 12}" y="{yc:.1f}" text-anchor="end">{ver}</text>')
-        vals = [r["pct_lt5"], r["pct_5_15"], r["pct_ge15"]]
+        vals = [r["pct_lt5"], r["pct_5_20"], r["pct_ge20"]]
         clip = f"clip{i}"
         s.append(f'<clipPath id="{clip}"><rect x="{L}" y="{y}" width="{bw}" height="{barh}" rx="4"/></clipPath>')
         s.append(f'<g clip-path="url(#{clip})">')
@@ -186,7 +186,7 @@ def chart_mix():
                 s.append(f'<rect class="seg hit2" x="{x:.1f}" y="{y}" width="{max(w - gap, 0.5):.1f}" '
                          f'height="{barh}" fill="{BIN_COLORS[k]}" data-tip="{esc(tip)}"/>')
                 if w >= 40:
-                    fill = "#ffffff" if k == 2 else "#0b0b0b"
+                    fill = "#0b0b0b"
                     s.append(f'<text class="seglab" x="{x + (w - gap) / 2:.1f}" y="{y + barh / 2 + 4:.1f}" '
                              f'text-anchor="middle" fill="{fill}">{p:.0f}%</text>')
             x += w
@@ -206,7 +206,7 @@ def results_table():
 
     def ge(v, s):
         r = core[(v, s)]
-        return f"<b>{ge15(r):.1f}%</b> <small>({r['pct_ge15_lo']:.1f}–{r['pct_ge15_hi']:.1f})</small>"
+        return f"<b>{ge20(r):.1f}%</b> <small>({r['pct_ge20_lo']:.1f}–{r['pct_ge20_hi']:.1f})</small>"
 
     keys = [(v, s) for v, s, _ in SERIES]
     rows = [
@@ -215,9 +215,9 @@ def results_table():
         ["Median / 90th pct (kt)"] + [f"{core[k]['median']:.1f} / {core[k]['p90']:.1f}" for k in keys],
         ["Maximum (kt)"] + [f"{core[k]['max']:.1f}" for k in keys],
         ["&lt; 5 kt"] + [f"<b>{core[k]['pct_lt5']:.0f}%</b> <small>({ci(core[k], 'pct_lt5', 0)})</small>" for k in keys],
-        ["5–15 kt"] + [f"<b>{core[k]['pct_5_15']:.0f}%</b> <small>({ci(core[k], 'pct_5_15', 0)})</small>" for k in keys],
-        ["≥ 15 kt"] + [ge(*k) for k in keys],
-        ["Usable days (≥3 h in 5–15 kt)"] + [f"<b>{core[k]['usable_day_pct']:.0f}%</b> <small>({ci(core[k], 'usable_day', 0)})</small>" for k in keys],
+        ["5–20 kt"] + [f"<b>{core[k]['pct_5_20']:.0f}%</b> <small>({ci(core[k], 'pct_5_20', 0)})</small>" for k in keys],
+        ["≥ 20 kt"] + [ge(*k) for k in keys],
+        ["Usable days (≥3 h in 5–20 kt)"] + [f"<b>{core[k]['usable_day_pct']:.0f}%</b> <small>({ci(core[k], 'usable_day', 0)})</small>" for k in keys],
         ["Direction steadiness R"] + [f"{core[k]['R']:.2f}" for k in keys],
     ]
     return table(["Racing hours, HRRR as retrieved"] + [l for _, _, l in SERIES], rows, "num")
@@ -228,13 +228,13 @@ def buffer_table():
     for v, s, label in SERIES:
         b = buffer[(v, s)]
         rows.append([label, f"{b['mean']:.1f} <small>({ci(b, 'mean')})</small>",
-                     f"{b['pct_5_15']:.0f}%", f"{ge15(b):.1f}%", str(int(b["n"]))])
-    return table(["Window ±3 days", "Mean kt (95% CI)", "5–15 kt", "≥ 15 kt", "Samples"], rows, "num")
+                     f"{b['pct_5_20']:.0f}%", f"{ge20(b):.1f}%", str(int(b["n"]))])
+    return table(["Window ±3 days", "Mean kt (95% CI)", "5–20 kt", "≥ 20 kt", "Samples"], rows, "num")
 
 
 def paired_table():
-    nm = {"mean_kt": "Mean wind (kt)", "pct_5_15": "Share in 5–15 kt (points)",
-          "pct_ge15": "Share ≥ 15 kt (points)"}
+    nm = {"mean_kt": "Mean wind (kt)", "pct_5_20": "Share in 5–20 kt (points)",
+          "pct_ge20": "Share ≥ 20 kt (points)"}
     rows = []
     for _, r in PAIRED.iterrows():
         k = r["metric"].replace("HYC - GTYC ", "")
@@ -250,9 +250,9 @@ def band_table():
         b = BAND[(BAND.venue == v) & (BAND.season == s)]
         rows.append([label, f"{b['mean'].min():.1f}–{b['mean'].max():.1f}",
                      f"{b.pct_lt5.min():.0f}–{b.pct_lt5.max():.0f}%",
-                     f"{b.pct_5_15.min():.0f}–{b.pct_5_15.max():.0f}%",
-                     f"{b.pct_ge15.min():.1f}–{b.pct_ge15.max():.1f}%"])
-    return table(["Offshore 1–6 nm × radius 2–6 nm", "Mean (kt)", "&lt; 5 kt", "5–15 kt", "≥ 15 kt"], rows, "num")
+                     f"{b.pct_5_20.min():.0f}–{b.pct_5_20.max():.0f}%",
+                     f"{b.pct_ge20.min():.1f}–{b.pct_ge20.max():.1f}%"])
+    return table(["Offshore 1–6 nm × radius 2–6 nm", "Mean (kt)", "&lt; 5 kt", "5–20 kt", "≥ 20 kt"], rows, "num")
 
 
 def peryear_table():
@@ -261,7 +261,7 @@ def peryear_table():
         cells = [str(y)]
         for v, s, _ in SERIES:
             d = PERYEAR[(PERYEAR.venue == v) & (PERYEAR.season == s) & (PERYEAR.year == y)].iloc[0]
-            cells.append(f"{d['mean']:.1f} <small>({d['pct_ge15']:.0f}% ≥15)</small>")
+            cells.append(f"{d['mean']:.1f} <small>({d['pct_ge20']:.0f}% ≥20)</small>")
         rows.append(cells)
     return table(["Year"] + [l for _, _, l in SERIES], rows, "num")
 
@@ -303,11 +303,11 @@ def validation_tables():
         a = pick(venue, "nearest water cell", "log")
         b2 = pick(venue, "2 nm water box", "log")
         rows.append([label,
-                     f"{a['obs_pct_lt5']:.1f} / {a['obs_pct_5_15']:.1f} / {a['obs_pct_ge15']:.1f}%",
+                     f"{a['obs_pct_lt5']:.1f} / {a['obs_pct_5_20']:.1f} / {a['obs_pct_ge20']:.1f}%",
                      f"{rng(a['hrrr_pct_lt5'], b2['hrrr_pct_lt5'], 0)} / "
-                     f"{rng(a['hrrr_pct_5_15'], b2['hrrr_pct_5_15'], 0)} / "
-                     f"{rng(a['hrrr_pct_ge15'], b2['hrrr_pct_ge15'], 1)}%"])
-    t2 = table(["Share of racing hours: &lt;5 / 5–15 / ≥15 kt", "Buoy (10 m-adjusted)", "HRRR at the buoy"],
+                     f"{rng(a['hrrr_pct_5_20'], b2['hrrr_pct_5_20'], 0)} / "
+                     f"{rng(a['hrrr_pct_ge20'], b2['hrrr_pct_ge20'], 1)}%"])
+    t2 = table(["Share of racing hours: &lt;5 / 5–20 / ≥20 kt", "Buoy (10 m-adjusted)", "HRRR at the buoy"],
                rows, "num")
     return t1, t2
 
@@ -320,9 +320,9 @@ def adjusted_table():
             r = q[q.version == "HRRR raw"].iloc[0] if ver == "HRRR raw" else q[q.version != "HRRR raw"].iloc[0]
             name = "HRRR as retrieved" if ver == "HRRR raw" else "Bias-adjusted (quantile mapping)"
             rows.append([label if ver == "HRRR raw" else "", name, f"{r['mean']:.1f}",
-                         f"{r['pct_lt5']:.0f}%", f"{r['pct_5_15']:.0f}%", f"{r['pct_ge15']:.1f}%",
+                         f"{r['pct_lt5']:.0f}%", f"{r['pct_5_20']:.0f}%", f"{r['pct_ge20']:.1f}%",
                          "" if ver == "HRRR raw" else f"{int(r['n_fit_pairs'])}"])
-    return table(["Window", "Version", "Mean kt", "&lt; 5 kt", "5–15 kt", "≥ 15 kt", "Fit pairs"], rows, "num l2")
+    return table(["Window", "Version", "Mean kt", "&lt; 5 kt", "5–20 kt", "≥ 20 kt", "Fit pairs"], rows, "num l2")
 
 
 def quality_tables():
@@ -346,7 +346,7 @@ CSS = """
   --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#6f6d68;
   --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10); --wash:#f1f0ec;
   --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
-  --r1:#86b6ef; --r2:#3987e5; --r3:#184f95;
+  --r1:#5b9bd8; --r2:#55b878; --r3:#d9822b;
   --callout:#eaf2fd; --callout-border:#9ec5f4; --warn:#fdf3e1; --warn-border:#eda100;
   color-scheme: light;
 }
@@ -466,15 +466,16 @@ JS = """
 
 def build():
     g, hs, hj = core[("gtyc", "sep")], core[("hyc", "sep")], core[("hyc", "jun")]
-    d_mean, d_ge = paired["mean_kt"], paired["pct_ge15"]
+    d_mean, d_sw = paired["mean_kt"], paired["pct_5_20"]
+    assert d_sw.lo > 0, "sweet-spot finding in the Bottom line assumes the CI excludes 0"
     gd = diurnal[("gtyc", "sep")]
     val1, val2 = validation_tables()
     q1, q2 = quality_tables()
     figs_summary = (
         f'<div class="fig">{img("summary_gtyc_sep.png", "GTYC September wind rose, speed distribution and statistics")}'
-        f'<p class="cap"><b>GTYC, Sept 8–14.</b> Wind rose (direction wind blows <i>from</i>), speed mix and statistics for racing hours, 2015–2025. Light air dominates and almost no heavy air appears in HRRR.</p></div>'
+        f'<p class="cap"><b>GTYC, Sept 8–14.</b> Wind rose (direction wind blows <i>from</i>), speed mix and statistics for racing hours, 2015–2025. Light air is the main shortfall, and HRRR shows essentially no hours at 20 kt or more.</p></div>'
         f'<div class="fig">{img("summary_hyc_sep.png", "HYC September wind rose, speed distribution and statistics")}'
-        f'<p class="cap"><b>HYC, Sept 8–14.</b> Flow is mostly from the north through north-east and from the south-west to west; about one racing hour in ten reaches 15–20 kt.</p></div>'
+        f'<p class="cap"><b>HYC, Sept 8–14.</b> Flow is mostly from the north through north-east and from the south-west to west; about three racing hours in four fall in the 5–20 kt sweet spot, and almost none reach 20 kt.</p></div>'
         f'<div class="fig">{img("summary_hyc_jun.png", "HYC June wind rose, speed distribution and statistics")}'
         f'<p class="cap"><b>HYC, June 14–21.</b> Similar to September in speed mix, with a slightly heavier tail (maximum 26.5 kt).</p></div>')
 
@@ -506,13 +507,13 @@ def build():
 <h2>Bottom line</h2>
 <div class="tiles">
   <div class="tile"><div class="v">+{d_mean.diff:.1f} kt</div><div class="l">HYC is windier than GTYC in September</div><div class="n">95% CI +{d_mean.lo:.1f} to +{d_mean.hi:.1f}</div></div>
-  <div class="tile"><div class="v">{ge15(g):.1f}% vs {ge15(hs):.1f}%</div><div class="l">Racing hours at 15 kt or more, GTYC vs HYC (Sept)</div><div class="n">HRRR as retrieved; buoys suggest both are higher</div></div>
+  <div class="tile"><div class="v">{g["pct_5_20"]:.0f}% vs {hs["pct_5_20"]:.0f}%</div><div class="l">Racing hours in the 5–20 kt sweet spot, GTYC vs HYC (Sept)</div><div class="n">HRRR as retrieved, which reads low against the buoys</div></div>
   <div class="tile"><div class="v">{gd.loc[10]:.1f} → {gd.loc[17]:.1f} kt</div><div class="l">GTYC mean wind, 10 AM → 5 PM</div><div class="n">A strong afternoon thermal build</div></div>
   <div class="tile"><div class="v">1.3–1.7 kt</div><div class="l">How low HRRR runs against the buoys</div><div class="n">Racing hours, height-adjusted</div></div>
 </div>
 <ol class="find">
-  <li><b>HYC is the windier venue in September, and that holds up.</b> After accounting for year-to-year variability, HYC averages {d_mean.diff:+.1f} kt more than GTYC (CI {d_mean.lo:+.1f} to {d_mean.hi:+.1f}) and has {d_ge.diff:.1f} points more hours at 15 kt or above (CI {d_ge.lo:+.1f} to {d_ge.hi:+.1f}).</li>
-  <li><b>The two are not distinguishable on the 5–15 kt “sweet spot”.</b> They differ in how they fail: GTYC on light air, HYC on heavy air.</li>
+  <li><b>HYC is the windier venue in September, and that holds up.</b> After accounting for year-to-year variability, HYC averages {d_mean.diff:+.1f} kt more than GTYC (CI {d_mean.lo:+.1f} to {d_mean.hi:+.1f}) and has {d_sw.diff:.1f} points more of its racing hours in the 5–20 kt sweet spot (CI {d_sw.lo:+.1f} to {d_sw.hi:+.1f}).</li>
+  <li><b>The gap comes from light air.</b> {g["pct_lt5"]:.0f}% of GTYC racing hours are below 5 kt against {hs["pct_lt5"]:.0f}% at HYC. Neither venue has meaningful time at 20 kt or more in HRRR.</li>
   <li><b>GTYC is an afternoon-thermal venue.</b> A 10 AM start catches the lightest part of the day, so later starts should help (see <a href="#time">time of day</a>).</li>
   <li><b>HYC’s mid-June window looks like September</b> ({hj['mean']:.1f} vs {hs['mean']:.1f} kt mean) but builds more through the afternoon.</li>
   <li><b>HRRR reads low against the buoys,</b> so treat the raw numbers as a lower bound on wind. The venue ranking is the same either way; the absolute levels are not (see <a href="#adjusted">bias-adjusted range</a>).</li>
@@ -535,7 +536,7 @@ def build():
  ["GTYC", "44.7803 N, 85.6385 W", "Bearing 20°, 3 nm offshore (racing circle roughly midway to Power Island)", "44.8273 N, 85.6144 W", "11"],
  ["HYC", "43.9448 N, 83.2786 W", "Bearing 330°, 2 nm offshore", "43.9737 N, 83.3018 W", "19"]], "text")}
 <p class="small"><b>Correction, 20 Oct 2026:</b> the first run measured GTYC’s bearing and distance from a club position that was about 1.9 nm too far south. The sample point moved north by the same amount and every GTYC figure was recomputed from the same cached data. HYC’s position was already correct (within 10 m). Conclusions are unchanged; GTYC’s mean rose 0.1 kt (6.3 to 6.4).</p>
-<p><b>Speed bins:</b> &lt; 5 kt light, 5–15 kt sweet spot, ≥ 15 kt heavy. <b>Usable day:</b> at least 3 consecutive racing hours in 5–15 kt.</p>
+<p><b>Speed bins:</b> &lt; 5 kt light, 5–20 kt sweet spot, ≥ 20 kt heavy. <b>Usable day:</b> at least 3 consecutive racing hours in 5–20 kt.</p>
 </section>
 
 <section id="results">
@@ -552,7 +553,7 @@ def build():
 <h3>Is the answer sensitive to the window or the sample point?</h3>
 <p>Widening to ±3 days changes nothing material:</p>
 {buffer_table()}
-<p>Moving the sample point across a grid of offshore distances (1–6 nm) and box radii (2–6 nm) on the primary bearing moves the numbers far less than year-to-year variability does. The exception is HYC’s heavy-air share, which rises the farther the point is from shore.</p>
+<p>Moving the sample point across a grid of offshore distances (1–6 nm) and box radii (2–6 nm) on the primary bearing moves the numbers far less than year-to-year variability does. The exception is HYC’s light-air share in September, which creeps up with larger boxes (about 23% below 5 kt at a 2 nm radius to 27% at 6 nm).</p>
 {band_table()}
 </section>
 
@@ -560,8 +561,8 @@ def build():
 <h2>Year by year</h2>
 <p class="lede">Eleven seasons give useful but wide intervals. Hover the chart for each year’s values.</p>
 <div class="fig">{chart_per_year()}
-<p class="cap"><b>Mean racing-hour wind by year.</b> HYC is windier than GTYC in September in 9 of 11 years; GTYC edges ahead by 0.2–0.3 kt in 2016 and 2025. Yearly means span about 4.5 kt at GTYC and 7 kt at HYC. HYC’s heavy air is concentrated in a few years: in September, 4 of 11 years had at least 10% heavy-air hours (2018–2021) and 2 had none (2023, 2025).</p></div>
-<details><summary>Table view (mean kt and share of hours at 15 kt or more)</summary>{peryear_table()}</details>
+<p class="cap"><b>Mean racing-hour wind by year.</b> HYC is windier than GTYC in September in 9 of 11 years; GTYC edges ahead by 0.2–0.3 kt in 2016 and 2025. Yearly means span about 4.5 kt at GTYC and 7 kt at HYC.</p></div>
+<details><summary>Table view (mean kt and share of hours at 20 kt or more)</summary>{peryear_table()}</details>
 </section>
 
 <section id="time">
@@ -580,7 +581,7 @@ def build():
  ["Distance from sample point", "about 2.3 nm (south of the racing area, same bay)", "about 14 nm (mid-bay, WSW)"],
  ["Data used", "2016–2018, Aug 1–Oct 9 (provided; buoy decommissioned after 2018)", "2015–2025 inside the Sept and June windows"],
  ["Anemometer height", "2.4 m", "2.3 m"]], "text")}
-<p>Buoy winds are scaled to 10 m with a neutral log profile (about ×1.15). Raw and power-law (×1.23) versions are shown because this adjustment is the largest single uncertainty. Bias is HRRR minus buoy, in knots (negative = HRRR is lower); RMSE is in knots; “Same bin” is how often HRRR and the buoy fall in the same speed bin (&lt;5, 5–15, ≥15 kt).</p>
+<p>Buoy winds are scaled to 10 m with a neutral log profile (about ×1.15). Raw and power-law (×1.23) versions are shown because this adjustment is the largest single uncertainty. Bias is HRRR minus buoy, in knots (negative = HRRR is lower); RMSE is in knots; “Same bin” is how often HRRR and the buoy fall in the same speed bin (&lt;5, 5–20, ≥20 kt).</p>
 {val1}
 {val2}
 <div class="fig">{img("validation_scatter.png", "Scatter of HRRR wind against buoy wind for GTYC and HYC racing hours")}
@@ -592,11 +593,11 @@ def build():
 <h2>Bias-adjusted range</h2>
 <p class="lede">HRRR was quantile-mapped to the height-adjusted buoy winds (fitted per season on matched racing-hour pairs) and applied to the venue series. This is an adjustment, not a measurement: the truth likely lies between the raw and adjusted versions.</p>
 <div class="fig">{chart_mix()}
-<p class="cap"><b>Share of racing hours by wind-speed bin.</b> The ranking of venues does not change, but the adjusted figures shift hours out of light air and into heavy air.</p></div>
+<p class="cap"><b>Share of racing hours by wind-speed bin.</b> The ranking of venues does not change, but the adjusted figures shift hours out of light air and into the 5–20 kt range.</p></div>
 {adjusted_table()}
 <h3>How much to trust the adjustment</h3>
 <ul>
-<li><b>GTYC (moderate confidence).</b> The buoy is about 2 nm south of the sample point, in the same bay. The adjusted mean stayed between 8.0 and 8.35 kt across five fitting choices (quantile mapping on Sept only, Aug–Oct, or Sept+Oct, and two linear scalings), with 5–7.5% of hours at 15 kt or more. A cross-check fitted on one year and tested on the others predicted 8.28 vs an observed 8.39 kt (fit 2016) and 9.29 vs 8.65 kt (fit 2018). The figures above use the Sept-only fit.</li>
+<li><b>GTYC (moderate confidence).</b> The buoy is about 2 nm south of the sample point, in the same bay. The adjusted mean stayed between 8.0 and 8.35 kt across five fitting choices (quantile mapping on Sept only, Aug–Oct, or Sept+Oct, and two linear scalings). A cross-check fitted on one year and tested on the others predicted 8.28 vs an observed 8.39 kt (fit 2016) and 9.29 vs 8.65 kt (fit 2018). The figures above use the Sept-only fit.</li>
 <li><b>HYC (treat as an upper bound).</b> The buoy is 14 nm from the sample point in open bay, so the adjustment may overstate wind near the Caseville shore, particularly heavy air.</li>
 <li>The adjusted HYC–GTYC gap is about 1.7–2.0 kt, so the ranking is unchanged.</li>
 </ul>
@@ -616,7 +617,7 @@ def build():
 <li>HRRR is a 3 km model analysis, not an observation. It is low-biased against the buoys and handles narrow water poorly: GTYC’s West Arm is only 1–2 grid cells wide.</li>
 <li>Buoy wind at 2.3–2.4 m must be scaled to 10 m. The result is sensitive to the method, and atmospheric stability is not modeled.</li>
 <li>The GTYC buoy record is only 2016–2018, and the HYC buoy is 14 nm from the sample point.</li>
-<li>Eleven seasons, one calendar week per year. Intervals are wide, and a few years drive HYC’s heavy-air share.</li>
+<li>Eleven seasons, one calendar week per year. Intervals are wide, and year-to-year differences are large (HYC’s September mean ranged from 5.0 to 12.3 kt).</li>
 <li>Race-course layout, shoreline effects inside the bay, safety, logistics and fleet preferences are not captured.</li>
 </ul>
 </section>

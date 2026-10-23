@@ -96,8 +96,8 @@ def cmd_analyze(study, args):
     outputs.write_analysis(study, res)
     pd.set_option("display.width", 220, "display.max_columns", 40)
     print(res.summary[["venue", "season", "scope", "n", "mean", "mean_lo", "mean_hi", "median",
-                       "p90", "pct_lt5", "pct_5_15", "pct_5_15_lo", "pct_5_15_hi",
-                       "pct_ge15_lo", "pct_ge15_hi", "pct_15_20", "pct_ge20",
+                       "p90", "pct_lt5", "pct_5_20", "pct_5_20_lo", "pct_5_20_hi",
+                       "pct_ge20_lo", "pct_ge20_hi", "pct_ge20",
                        "usable_day_pct", "dom_dir", "R"]].round(1).to_string(index=False))
     for df in res.paired.values():
         print("\n", df.round(2).to_string(index=False))
@@ -117,8 +117,8 @@ def cmd_validate(study, args):
              "dir_bias_deg", "dir_mae_deg"]].round(2).to_string(index=False))
     print()
     print(m[m["height_adj"].str.startswith("log")][
-        ["venue", "hrrr_sampling", "subset", "obs_pct_lt5", "obs_pct_5_15", "obs_pct_ge15",
-         "hrrr_pct_lt5", "hrrr_pct_5_15", "hrrr_pct_ge15"]].round(1).to_string(index=False))
+        ["venue", "hrrr_sampling", "subset", "obs_pct_lt5", "obs_pct_5_20", "obs_pct_ge20",
+         "hrrr_pct_lt5", "hrrr_pct_5_20", "hrrr_pct_ge20"]].round(1).to_string(index=False))
     print()
     print(a.round(1).to_string(index=False))
 
