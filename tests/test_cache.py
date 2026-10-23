@@ -24,11 +24,12 @@ class FakeHerbie:
                           coords={"latitude": (("y", "x"), lat), "longitude": (("y", "x"), lon)})
 
 
-def fake_fetch(dates, source, max_threads=50):
+def fake_fetch(dates, source, slices, max_threads=50):
     vt = pd.DatetimeIndex(dates)
     n = len(vt)
-    return vt, xr.DataArray(np.full((n, 8, 8), 3.0, "float32"), dims=("time", "y", "x")), \
-        xr.DataArray(np.zeros((n, 8, 8), "float32"), dims=("time", "y", "x"))
+    return vt, {k: (np.full((n, ys.stop - ys.start, xs.stop - xs.start), 3.0, "float32"),
+                    np.zeros((n, ys.stop - ys.start, xs.stop - xs.start), "float32"))
+                for k, (ys, xs) in slices.items()}
 
 
 def test_build_cache_writes_cache_checkpoint_and_progress(tmp_path, monkeypatch):
@@ -64,25 +65,25 @@ def _restore_socket_timeout():
 def test_transient_errors_are_retried(monkeypatch):
     calls = []
 
-    def flaky(dates, source, max_threads=50):
+    def flaky(dates, source, slices, max_threads=50):
         calls.append(1)
         if len(calls) < 3:
             raise OSError("connection reset")
-        return fake_fetch(dates, source)
+        return fake_fetch(dates, source, slices)
 
     monkeypatch.setattr(cachemod, "fetch_wind", flaky)
     res, failed = cachemod.fetch_with_retry(pd.date_range("2020-09-08", periods=2, freq="h").tolist(),
-                                            "aws", pause=(0,))
+                                            "aws", {}, pause=(0,))
     assert res is not None and not failed and len(calls) == 3
 
 
 def test_absent_files_are_not_a_network_error(monkeypatch):
     monkeypatch.setattr(cachemod, "fetch_wind", lambda *a, **k: None)
-    assert cachemod.fetch_with_retry([pd.Timestamp("2020-09-08")], "aws") == (None, False)
+    assert cachemod.fetch_with_retry([pd.Timestamp("2020-09-08")], "aws", {}) == (None, False)
 
 
 def test_network_outage_saves_nothing_for_the_year(tmp_path, monkeypatch):
-    def down(dates, source, max_threads=50):
+    def down(dates, source, slices, max_threads=50):
         raise OSError("network is down")
 
     monkeypatch.setitem(sys.modules, "herbie", types.SimpleNamespace(Herbie=FakeHerbie))

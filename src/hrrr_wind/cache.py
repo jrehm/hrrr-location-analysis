@@ -4,6 +4,7 @@
 works from the ``cache_<venue>_<tag>.npz`` files it writes.
 """
 import gc
+from concurrent.futures import ThreadPoolExecutor
 import logging
 import math
 import time
@@ -45,13 +46,13 @@ class NetworkTrouble(RuntimeError):
     """Downloads kept failing with errors (not just absent files); nothing was saved for the year."""
 
 
-def fetch_with_retry(dates, source, attempts=CHUNK_ATTEMPTS, pause=None):
+def fetch_with_retry(dates, source, slices, attempts=CHUNK_ATTEMPTS, pause=None):
     """fetch_wind with a few retries on exceptions. Returns (result, failed): result None with
     failed False means the files are absent from the archive; failed True means errors (network)."""
     pause = RETRY_PAUSE_S if pause is None else pause
     for i in range(attempts):
         try:
-            return fetch_wind(dates, source), False
+            return fetch_wind(dates, source, slices), False
         except Exception as e:
             logger.error(f"fetch {len(dates)} hours from {source} failed (try {i + 1}/{attempts}): {e}")
             if i + 1 < attempts:
@@ -66,22 +67,39 @@ def check_memory(limit_gb, where):
         raise MemoryLimitExceeded(f"ABORT at {where}: RSS {gb:.1f} GB exceeds max-rss-gb {limit_gb}")
 
 
-def fetch_wind(dates, source, max_threads=50):
-    """Fetch u/v for `dates` (list of Timestamps); returns (valid_times, u_da, v_da) or None."""
+def _read_cropped(H, slices):
+    """Decode one hour's u/v and keep only each venue's box; returns (valid_time, {key: (u, v)})."""
+    ds = H.xarray(clim.SEARCH_WIND)
+    ds = ds[0] if isinstance(ds, list) else ds
+    vt = pd.Timestamp((ds["valid_time"] if "valid_time" in ds.coords else ds["time"]).values.item())
+    u = ds["u10"] if "u10" in ds else ds["UGRD"]
+    v = ds["v10"] if "v10" in ds else ds["VGRD"]
+    # np.array(..., copy=True) is essential: a bare isel(...).values is a VIEW that pins the
+    # whole full-CONUS parent array in memory.
+    return vt, {key: (np.array(u.isel(y=ys, x=xs).values, dtype="float32", copy=True),
+                      np.array(v.isel(y=ys, x=xs).values, dtype="float32", copy=True))
+                for key, (ys, xs) in slices.items()}
+
+
+def fetch_wind(dates, source, slices, max_threads=50):
+    """Fetch u/v for `dates` (list of Timestamps), cropped per venue as soon as each file is decoded.
+
+    ``slices`` maps venue key -> (y slice, x slice). Returns (valid_times, {key: (u, v)}) with
+    u/v shaped (n, ny, nx) and times ascending, or None if no file exists. Cropping per file
+    avoids ever holding a full-CONUS stack of the whole chunk.
+    """
+    from concurrent.futures import ThreadPoolExecutor
     from herbie import FastHerbie
     FH = FastHerbie(dates, model="hrrr", product="sfc", fxx=[0], source=source,
                     max_threads=max_threads)
-    if not FH.file_exists:
+    files = FH.file_exists
+    if not files:
         return None
-    ds = FH.xarray(clim.SEARCH_WIND, max_threads=max_threads)
-    ds = ds[0] if isinstance(ds, list) else ds
-    if "step" in ds.dims and ds.sizes["step"] == 1:
-        ds = ds.isel(step=0)
-    vt = pd.to_datetime(np.atleast_1d((ds["valid_time"] if "valid_time" in ds.coords
-                                       else ds["time"]).values))
-    u = ds["u10"] if "u10" in ds else ds["UGRD"]
-    v = ds["v10"] if "v10" in ds else ds["VGRD"]
-    return vt, u, v
+    with ThreadPoolExecutor(min(len(files), max_threads)) as exe:
+        hours = sorted(exe.map(lambda H: _read_cropped(H, slices), files), key=lambda r: r[0])
+    vt = pd.DatetimeIndex([h[0] for h in hours])
+    return vt, {key: (np.stack([h[1][key][0] for h in hours]), np.stack([h[1][key][1] for h in hours]))
+                for key in slices}
 
 def build_cache(out_dir, venues, years, tag, start, end, start_hour=0, end_hour=23,
                 max_rss_gb=6.0, chunk_hours=72, progress=None, clubs=None):
@@ -139,35 +157,36 @@ def build_cache(out_dir, venues, years, tag, start, end, start_hour=0, end_hour=
         dr = ranges[0][0]
         yr = {key: {"t": [], "u": [], "v": []} for key in venues}
 
-        def keep(vt, u, v):
-            # np.array(..., copy=True) is essential: a bare isel(...).values is a VIEW
-            # that pins the whole full-CONUS parent array in memory.
+        def keep(vt, boxes):
             for key in venues:
-                ys, xs = slices[key]
-                n = len(vt)
                 yr[key]["t"].append(np.array(vt.values.astype("datetime64[ns]")))
-                yr[key]["u"].append(np.array(u.isel(y=ys, x=xs).values, dtype="float32",
-                                             copy=True).reshape(n, ys.stop - ys.start, -1))
-                yr[key]["v"].append(np.array(v.isel(y=ys, x=xs).values, dtype="float32",
-                                             copy=True).reshape(n, ys.stop - ys.start, -1))
+                yr[key]["u"].append(boxes[key][0])
+                yr[key]["v"].append(boxes[key][1])
 
         got = set()
         net_errors = 0
         n_chunks = -(-len(dr) // chunk_hours)
-        for i in range(0, len(dr), chunk_hours):
-            if progress:
-                progress(year, i // chunk_hours, n_chunks)
-            chunk = dr[i:i + chunk_hours]
-            res, failed = fetch_with_retry(chunk.tolist(), "aws")
-            net_errors += failed
-            if res is None:
-                continue
-            vt, u, v = res
-            keep(vt, u, v)
-            got |= set(vt)
-            del res, vt, u, v
-            gc.collect()
-            check_memory(max_rss_gb, f"year {year} chunk {i}")
+        starts = list(range(0, len(dr), chunk_hours))
+        # One chunk is fetched ahead on a worker thread, so the network is busy while the main
+        # thread stores the previous chunk.
+        with ThreadPoolExecutor(1) as prefetch:
+            def submit(i):
+                return prefetch.submit(fetch_with_retry, dr[i:i + chunk_hours].tolist(), "aws", slices)
+            pending = submit(starts[0]) if starts else None
+            for n, i in enumerate(starts):
+                if progress:
+                    progress(year, n, n_chunks)
+                res, failed = pending.result()
+                pending = submit(starts[n + 1]) if n + 1 < len(starts) else None
+                net_errors += failed
+                if res is None:
+                    continue
+                vt, boxes = res
+                keep(vt, boxes)
+                got |= set(vt)
+                del res, vt, boxes
+                gc.collect()
+                check_memory(max_rss_gb, f"year {year} chunk {i}")
         if net_errors:                  # don't grind through per-hour retries on a dead link
             raise NetworkTrouble(f"year {year}: {net_errors} chunk(s) failed after {CHUNK_ATTEMPTS} tries, "
                                  f"not saved; check the connection and run again (finished years are kept)")
@@ -175,7 +194,7 @@ def build_cache(out_dir, venues, years, tag, start, end, start_hour=0, end_hour=
         # Retry missing timestamps one by one on alternate sources
         for t in list(miss):
             for src in ("aws", "google", "azure"):
-                res, failed = fetch_with_retry([t], src, attempts=1)
+                res, failed = fetch_with_retry([t], src, slices, attempts=1)
                 net_errors += failed
                 if res is not None:
                     keep(*res)

@@ -7,6 +7,9 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 `__version__` in `src/hrrr_wind/__init__.py`; the web app shows it in the footer and `/api/health`.
 
 ## [Unreleased]
+### Changed
+- Faster downloads: each hour is cropped to the venue boxes as soon as it is decoded (no full-CONUS
+  stack per chunk), and the next chunk downloads while the previous one is stored.
 
 ## [1.3.1] - 2026-10-22
 ### Fixed
