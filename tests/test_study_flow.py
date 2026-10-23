@@ -50,6 +50,21 @@ def test_hostile_definitions_are_rejected(change):
         validate_definition({**DEFN, **change})
 
 
+def _many(n):
+    venues = [{**VENUE, "key": f"v{i}", "name": f"Club {i}", "lon": -82.0 - i * 0.1} for i in range(n)]
+    return {**DEFN, "venues": venues, "windows": [{**WINDOW, "venue": v["key"]} for v in venues]}
+
+
+def test_nine_venues_is_the_limit():
+    """Nine series colors exist in the UI, so a study holds at most nine venues and nine windows."""
+    assert len(validate_definition(_many(9))["venues"]) == 9
+    with pytest.raises(DefinitionError, match="at most 9 venues"):
+        validate_definition(_many(10))
+    extra = {**_many(9), "windows": _many(9)["windows"] + [{**WINDOW, "venue": "v0", "season": "jun", "core": ["06-14", "06-21"]}]}
+    with pytest.raises(DefinitionError, match="at most 9 windows"):
+        validate_definition(extra)
+
+
 def test_toml_round_trip_with_hostile_text(tmp_path):
     name = 'Q"uote \\ back # hash [x] = "y" é日本'
     d = {**DEFN, "name": name, "venues": [{**VENUE, "name": 'Club "A"\\\\ ] [[venues]] key = "evil"'}]}

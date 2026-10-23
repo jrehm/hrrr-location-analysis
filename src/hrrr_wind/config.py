@@ -31,7 +31,7 @@ LOCKED_STUDIES = frozenset({"gtyc_hyc_2028"})   # reference study: never rewritt
 
 FIRST_YEAR = 2015              # HRRR archive starts 2014-09-30
 MAX_YEARS, MAX_WINDOW_DAYS = 15, 45
-MAX_VENUES, MAX_WINDOWS = 4, 6
+MAX_VENUES, MAX_WINDOWS = 9, 9     # one chart color per window (web/static/style.css has 9 series colors)
 BUFFER_DAYS = 3                # cache covers the core window +/- this many days
 CONUS_LAT, CONUS_LON = (21.0, 53.0), (-135.0, -60.0)   # HRRR domain (rough bounds)
 

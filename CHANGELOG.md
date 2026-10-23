@@ -7,6 +7,9 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 `__version__` in `src/hrrr_wind/__init__.py`; the web app shows it in the footer and `/api/health`.
 
 ## [Unreleased]
+### Changed
+- Charts have nine distinct series colors (and marker shapes) instead of three that repeated. A study may now hold
+  up to 9 venues and 9 windows (was 4 and 6); that is the hard limit.
 
 ## [2.0.0] - 2026-10-23
 ### Fixed

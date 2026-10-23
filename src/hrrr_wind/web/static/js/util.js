@@ -3,9 +3,12 @@ export const pct = (x, d = 0) => (x == null ? "–" : `${Number(x).toFixed(d)}%`
 export const range = (lo, hi, d = 1) => `${fmt(lo, d)}–${fmt(hi, d)}`;
 export const label = (venue, season) =>
   `${venue.toUpperCase()} ${({ sep: "Sept", jun: "June" })[season] || season}`;
-export const SERIES_VARS = ["--s-gtyc", "--s-hyc", "--s-hyc-jun"];
+// Nine distinct series colors (one per window; a study has at most 9) and marker shapes as a second cue.
+export const SERIES_VARS = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6", "--s7", "--s8", "--s9"];
+export const SERIES_POINTS = ["circle", "rect", "triangle", "rectRot", "star", "cross", "crossRot", "rectRounded", "circle"];
 export const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 export const seriesColor = (i) => cssVar(SERIES_VARS[i % SERIES_VARS.length]);
+export const seriesPoint = (i) => SERIES_POINTS[i % SERIES_POINTS.length];
 export const debounce = (fn, ms) => {
   let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 };

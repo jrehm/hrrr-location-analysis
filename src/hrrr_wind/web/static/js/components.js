@@ -75,7 +75,7 @@ export function chartDefaults() {
   const fg = cssVar("--muted"), line = cssVar("--line");
   return {
     maintainAspectRatio: false,
-    plugins: { legend: { labels: { color: fg, boxWidth: 12 } } },
+    plugins: { legend: { labels: { color: fg, boxWidth: 12, usePointStyle: true } } },
     scales: { x: { ticks: { color: fg }, grid: { color: line } }, y: { ticks: { color: fg }, grid: { color: line } } },
   };
 }

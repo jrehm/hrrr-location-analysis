@@ -1,7 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { api } from "./api.js";
 import { html, Rose, Table, ChartCanvas, chartDefaults, binColors } from "./components.js";
-import { fmt, label, pct, range, seriesColor } from "./util.js";
+import { fmt, label, pct, range, seriesColor, seriesPoint } from "./util.js";
 import { ComparePage } from "./page_compare.js";
 
 export function useStudyData(meta, version = 0) {
@@ -32,7 +32,7 @@ export function ResultsPage({ meta, data }) {
   const lineCfg = {
     type: "line",
     data: { labels: years, datasets: meta.windows.map((w, i) => ({
-      label: label(w.venue, w.season), borderColor: seriesColor(i), backgroundColor: seriesColor(i),
+      label: label(w.venue, w.season), borderColor: seriesColor(i), backgroundColor: seriesColor(i), pointStyle: seriesPoint(i),
       tension: 0.15, pointRadius: 4, borderWidth: 2,
       data: years.map((y) => R.per_year.find((r) => r.venue === w.venue && r.season === w.season && r.year === y)?.mean ?? null) })) },
     options: { ...chartDefaults(), plugins: { ...chartDefaults().plugins, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmt(c.parsed.y)} kt` } } },
@@ -43,7 +43,7 @@ export function ResultsPage({ meta, data }) {
     type: "line",
     data: { labels: hours, datasets: meta.windows.map((w, i) => {
       const s = diurnal.find((x) => x.venue === w.venue && x.season === w.season) || { hours: [], mean_kt: [] };
-      return { label: label(w.venue, w.season), borderColor: seriesColor(i), backgroundColor: seriesColor(i), tension: 0.2, pointRadius: 3, borderWidth: 2,
+      return { label: label(w.venue, w.season), borderColor: seriesColor(i), backgroundColor: seriesColor(i), pointStyle: seriesPoint(i), tension: 0.2, pointRadius: 3, borderWidth: 2,
         data: hours.map((h) => { const k = s.hours.indexOf(h); return k < 0 ? null : s.mean_kt[k]; }) }; }) },
     options: { ...chartDefaults(), scales: { ...chartDefaults().scales,
       x: { ...chartDefaults().scales.x, title: { display: true, text: `Local hour (${meta.tz_abbr}); racing ${meta.race_label}`, color: chartDefaults().plugins.legend.labels.color } } } },
