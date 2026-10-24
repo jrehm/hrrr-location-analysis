@@ -9,6 +9,7 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 ## [Unreleased]
 ### Added
 - Day / Night / Auto theme toggle at the right of the study tab bar (remembered in the browser).
+- An (i) button on the Validation page opens a dismissable explanation of how HRRR is compared with the buoys.
 
 ### Changed
 - The study header and tabs stay fixed while the page content scrolls; inactive study tabs contrast more with the background.

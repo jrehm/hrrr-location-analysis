@@ -1,9 +1,26 @@
-import { useState } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import { html, Table, binColors } from "./components.js";
 import { fmt, label, pct } from "./util.js";
 
 const Mix = ({ r }) => { const c = binColors(); return html`<div class="bar" style="width:170px;margin:0"> ${[r.pct_lt5, r.pct_5_20, r.pct_ge20].map((v, i) =>
   html`<i title=${pct(v)} style=${{ width: v + "%", background: [c[0], c[2], c[4]][i] }}></i>`)}</div>`; };
+
+// (i) button plus a native <dialog>: Esc, the close button or a click outside dismisses it.
+function HowInfo() {
+  const ref = useRef(null);
+  return html`<button class="info" title="How validation works" aria-label="How validation works" onClick=${() => ref.current.showModal()}>i</button>
+    <dialog ref=${ref} class="infobox" onClick=${(e) => e.target === ref.current && ref.current.close()}>
+      <h2>How validation works</h2>
+      <p>HRRR is compared with each buoy at the <b>buoy's own location</b>, not at the venue. The club and sample-point coordinates are not used here.</p>
+      <ul>
+        <li>HRRR is sampled two ways, shown in the <i>HRRR sampling</i> column: the nearest water cell, and a 2 nm water box around the buoy.</li>
+        <li>Buoy speeds are adjusted to 10 m height. Each observation is matched to the top of the hour within 10 minutes.</li>
+        <li>HRRR comes from each buoy's own caches, which may cover more days than the climatology windows.</li>
+      </ul>
+      <p>The <b>bias-adjusted range</b> applies a quantile-map correction, fitted against the buoy, to HRRR at the venue sample points. This assumes the HRRR bias at the venue is similar to the bias at the buoy, which is weaker when the buoy is far from the venue.</p>
+      <form method="dialog"><button class="primary">Close</button></form>
+    </dialog>`;
+}
 
 export function ValidationPage({ meta, data }) {
   const { validation, adjusted } = data.results;
@@ -11,7 +28,7 @@ export function ValidationPage({ meta, data }) {
   const rows = validation.filter((r) => all || (r.height_adj.startsWith("log") && r.subset.startsWith("racing") && r.hrrr_sampling === "2 nm water box"));
   const buoy = (v) => meta.buoys.find((b) => b.venue === v);
   return html`<div class="grid">
-    <div class="card"><h2>HRRR versus buoys</h2>
+    <div class="card"><h2>HRRR versus buoys <${HowInfo} /></h2>
       <p class="small muted">Bias is HRRR minus buoy (negative: HRRR reads low). Buoy winds are scaled from the anemometer height to 10 m with a neutral log profile.
         ${meta.buoys.map((b) => html` Buoy ${b.id} serves ${b.venue.toUpperCase()}.`)}</p>
       <${Table} cols=${[
