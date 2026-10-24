@@ -8,6 +8,7 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 
 ## [Unreleased]
 ### Added
+- Delete a whole study in two steps. **Delete this study** (bottom of the Inputs page; the study's name must be typed) moves it to `studies/.trash/`; a **Trash** card (on the Inputs and New study pages) restores a trashed study or empties the trash, which needs a second confirmation where `empty trash` is typed. The locked reference study, read-only servers and studies with a running job are refused.
 - Set up validation from the Validation tab: choose a nearby NDBC buoy for each venue on a satellite map (stations within
   60 nm that archived wind in the study's years), confirm the anemometer height, and a `buoy` job downloads the
   observations, fetches HRRR around the buoy when it lies outside the venue's cache box (with a size estimate up front),

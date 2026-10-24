@@ -8,6 +8,7 @@ import { ValidationPage } from "./page_validation.js";
 import { FilesPage } from "./page_files.js";
 import { VenuesPage } from "./page_venues.js";
 import { NewStudyPage } from "./page_new.js";
+import { TrashCard } from "./page_trash.js";
 import { StatusStrip } from "./status.js";
 import { yearsSummary } from "./years.js";
 
@@ -81,6 +82,10 @@ function App() {
   if (err) return html`<main class="wrap"><p class="err">Could not load: ${err}</p></main>`;
   if (!studies) return html`<main class="wrap"><p class="muted">Loading…</p></main>`;
 
+  const studiesChanged = async (leave) => { // the list of studies changed (one was trashed or restored)
+    const l = await api("studies"); setStudies(l);
+    if (leave) go(l.length ? `#/s/${l[0].id}/overview` : "#/new");
+  };
   const edited = async (text) => { await refresh(); setNotice(text); };
   const rename = async () => {
     try { await patch(`studies/${sid}`, { name: renaming }); setRenaming(null); await edited("Renamed."); }
@@ -94,7 +99,8 @@ function App() {
 
   if (route.page === "home") return html`<main class="wrap"><p class="muted">Loading…</p></main>`;
   if (route.page === "new") return Shell("New study", html`<${NewStudyPage} studies=${studies} mode="new"
-    onDone=${(id) => done(id, "Study created.")} />`);
+    onDone=${(id) => done(id, "Study created.")} />
+    <${TrashCard} readonly=${readonly} onChanged=${() => studiesChanged(false)} />`);
 
   if (!meta) return html`${bar}<main class="wrap"><p class="muted">Loading…</p></main>`;
   const canEdit = !meta.readonly && !meta.locked;
@@ -105,7 +111,7 @@ function App() {
   if (route.page === "add" && !meta.readonly && !meta.locked) body = html`<${NewStudyPage} meta=${meta} studies=${studies} mode="add"
     onDone=${(id) => done(id, "Added venue.")} />`;
   else if (route.page === "venue") body = html`<${SetupPage} meta=${meta} venueKey=${route.arg} onSaved=${edited} />`;
-  else if (route.page === "inputs") body = html`<${VenuesPage} meta=${meta} onChanged=${() => refresh()} onEdited=${edited} />`;
+  else if (route.page === "inputs") body = html`<${VenuesPage} meta=${meta} onChanged=${() => refresh()} onEdited=${edited} onStudies=${studiesChanged} />`;
   else if (derr) body = html`<p class="err">${derr}</p>`;
   else if (!d) body = html`<p class="muted">Loading results…</p>`;
   else body = html`<${Page} meta=${meta} data=${d} onChanged=${() => refresh()} />`;

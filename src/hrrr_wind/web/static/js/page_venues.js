@@ -5,6 +5,7 @@ import { DateSelect } from "./page_new.js";
 import { MONTHS, label, yearRanges } from "./util.js";
 import { JobsPage } from "./page_jobs.js";
 import { YearsEditor } from "./years.js";
+import { TrashCard, TrashStudyCard } from "./page_trash.js";
 
 const nice = (d) => `${MONTHS[+d.slice(0, 2) - 1]} ${+d.slice(3)}`;
 
@@ -43,7 +44,7 @@ function AddWindow({ meta, venue, onDone, onCancel }) {
     <div class="row"><button class="primary" disabled=${busy} onClick=${submit}>Add window</button><button onClick=${onCancel}>Cancel</button></div></div>`;
 }
 
-export function VenuesPage({ meta, onChanged, onEdited }) {
+export function VenuesPage({ meta, onChanged, onEdited, onStudies }) {
   const canEdit = !meta.readonly && !meta.locked;
   const busy = downloading(meta);
   const [adding, setAdding] = useState(null), [ask, setAsk] = useState(null), [working, setWorking] = useState(false), [err, setErr] = useState(null);
@@ -84,5 +85,7 @@ export function VenuesPage({ meta, onChanged, onEdited }) {
     </div>`)}</div>
     ${!meta.readonly && html`<details class="adv"><summary>Advanced: manual download, recompute, wind caches on disk</summary>
       <${JobsPage} meta=${meta} onChanged=${onChanged} /></details>`}
+    <${TrashStudyCard} meta=${meta} onTrashed=${() => onStudies(true)} />
+    <${TrashCard} readonly=${meta.readonly} onChanged=${() => onStudies(false)} />
   </div>`;
 }

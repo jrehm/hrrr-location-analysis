@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from hrrr_wind import __version__, ndbc
+from hrrr_wind import __version__, ndbc, trash
 from hrrr_wind.cache import box_cells, load_cache
 from hrrr_wind.config import (_years_of, FIRST_YEAR, LOCKED_STUDIES, SLUG_RE, STUDIES_DIR, DefinitionError, buoy_caches, cache_plan,
                               cache_years, load_study, set_years, study_dict, validate_definition, window_tag,
@@ -416,6 +416,64 @@ def create_study(req: NewStudy):
     study = get_study(req.slug)
     save_preview_masks(study, study.out_dir)
     return study_meta(req.slug)
+
+
+def trash_error(e):
+    return HTTPException(409 if e.conflict else 422, str(e))
+
+
+class TrashStudy(BaseModel):
+    name: str
+
+
+@app.post("/api/studies/{sid}/trash")
+def trash_study(sid: str, req: TrashStudy):
+    """Move a whole study to the trash (restorable until the trash is emptied). The study's name must be typed."""
+    require_writable()
+    study = get_study(sid)
+    if sid in LOCKED_STUDIES:
+        raise HTTPException(403, f"study '{sid}' is the locked reference study and cannot be deleted")
+    busy = MANAGER.running()
+    if busy and busy.study_id == sid:
+        raise HTTPException(409, "a job is running for this study; wait for it or cancel it first")
+    if req.name != study.name:
+        raise HTTPException(422, "type the study's name exactly to confirm")
+    mb = trash.folder_mb(study_paths()[sid].parent)
+    try:
+        entry = trash.move_to_trash(STUDIES_DIR, sid)
+    except trash.TrashError as e:
+        raise trash_error(e)
+    get_study.cache_clear()
+    return {"trashed": entry, "mb": mb}
+
+
+@app.get("/api/trash")
+def list_trash():
+    require_writable()
+    return trash.list_trash(STUDIES_DIR)
+
+
+@app.post("/api/trash/empty")
+def empty_trash(req: dict):
+    """Permanently delete everything in the trash. Needs {"confirm": "empty trash"}."""
+    require_writable()
+    if req.get("confirm") != "empty trash":
+        raise HTTPException(422, 'send {"confirm": "empty trash"} to empty the trash')
+    if MANAGER.running():
+        raise HTTPException(409, "a job is running; wait for it or cancel it first")
+    n, mb = trash.empty(STUDIES_DIR)
+    return {"removed": n, "mb": mb}
+
+
+@app.post("/api/trash/{entry}/restore")
+def restore_study(entry: str):
+    require_writable()
+    try:
+        sid = trash.restore(STUDIES_DIR, entry)
+    except trash.TrashError as e:
+        raise trash_error(e)
+    get_study.cache_clear()
+    return {"restored": sid}
 
 
 @app.post("/api/studies/{sid}/venues", status_code=201)

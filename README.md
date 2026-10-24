@@ -104,7 +104,7 @@ trusting results. To add a club, add an entry to `YACHT_CLUB_PRESETS` in
 python -m hrrr_wind.api            # then open http://127.0.0.1:8000/
 ```
 
-Pages: **Inputs** (the study's years and venues; each venue's **sample point** page has a satellite map with the club, bearing line, sample point and the HRRR water/land cells being averaged, plus instant racing-hour stats for any bearing, distance and box size), **Overview** (wind roses, year by year, time of day, then the comparison: paired difference with confidence intervals, and sensitivity to the sample point), **Validation** (HRRR vs buoys; bias-adjusted range) and **Files** (downloads, data completeness, and an *Unused data* card that deletes caches and buoy folders nothing uses; removing a venue, window or buoy never deletes data by itself).
+Pages: **Inputs** (the study's years and venues; each venue's **sample point** page has a satellite map with the club, bearing line, sample point and the HRRR water/land cells being averaged, plus instant racing-hour stats for any bearing, distance and box size), **Overview** (wind roses, year by year, time of day, then the comparison: paired difference with confidence intervals, and sensitivity to the sample point), **Validation** (HRRR vs buoys; bias-adjusted range) and **Files** (downloads, data completeness, and an *Unused data* card that deletes caches and buoy folders nothing uses; removing a venue, window or buoy never deletes data by itself). A whole study is deleted in two steps: *Delete this study* on the Inputs page moves it to `studies/.trash/`, and the *Trash* card restores it or empties the trash for good.
 
 Studies in `studies/*/study.toml` are discovered automatically (`HRRR_WIND_STUDIES` points at a different folder).
 
