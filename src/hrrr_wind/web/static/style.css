@@ -129,3 +129,4 @@ dialog.infobox::backdrop { background: rgba(0, 0, 0, .45); }
 dialog.infobox form { text-align: right; margin: 0; }
 .row .grow { flex: 1; min-width: 0; }
 main a:not(.card):not(.on) { color: var(--accent); }
+tfoot tr.total td { font-weight: 600; border-top: 2px solid var(--line); border-bottom: 0; }

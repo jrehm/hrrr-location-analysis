@@ -5,11 +5,13 @@ import { cssVar } from "./util.js";
 
 export const html = htm.bind(h);
 
-export function Table({ cols, rows, caption }) {
+// ``foot``: optional totals row, one cell per column.
+export function Table({ cols, rows, caption, foot }) {
   return html`<div class="tablewrap"><table>
     ${caption && html`<caption class="small muted" style="text-align:left;padding-bottom:6px">${caption}</caption>`}
     <thead><tr>${cols.map((c) => html`<th class=${c.left ? "l" : ""}>${c.head}</th>`)}</tr></thead>
     <tbody>${rows.map((r) => html`<tr>${cols.map((c) => html`<td class=${c.left ? "l" : ""}>${c.cell(r)}</td>`)}</tr>`)}</tbody>
+    ${foot && html`<tfoot><tr class="total">${cols.map((c, i) => html`<td class=${c.left ? "l" : ""}>${foot[i]}</td>`)}</tr></tfoot>`}
   </table></div>`;
 }
 

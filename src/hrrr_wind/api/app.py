@@ -218,7 +218,8 @@ def study_meta(sid: str):
         "year_chips": year_chips(s),
         "pairs": [{"a": p.a, "b": p.b, "season": p.season} for p in s.pairs],
         "buoys": [{"venue": b.venue, "id": b.id, "lat": b.lat, "lon": b.lon, "anem_m": b.anem_m,
-                   "years": ndbc.file_years(s.buoy_files(b.venue)),
+                   "years": ndbc.file_years(s.buoy_files(b.venue)), "files": len(s.buoy_files(b.venue)),
+                   "mb": round(sum(f.stat().st_size for f in s.buoy_files(b.venue)) / 1e6, 2),
                    "sample_distance_nm": round(ndbc.bearing_distance(*s.sample_point(b.venue), b.lat, b.lon)[0], 1)}
                   for b in s.buoys.values()],
     }
@@ -318,8 +319,8 @@ def list_files(sid: str):
     s = get_study(sid)
     if not s.out_dir.exists():
         return []
-    return sorted(p.name for p in s.out_dir.iterdir()
-                  if p.is_file() and p.suffix in DOWNLOAD_EXT)
+    return sorted(({"name": p.name, "kb": round(p.stat().st_size / 1e3)} for p in s.out_dir.iterdir()
+                   if p.is_file() and p.suffix in DOWNLOAD_EXT), key=lambda f: f["name"])
 
 
 @app.get("/api/studies/{sid}/files/{name}")
