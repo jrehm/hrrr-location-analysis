@@ -191,7 +191,8 @@ def study_meta(sid: str):
         "year_chips": year_chips(s),
         "pairs": [{"a": p.a, "b": p.b, "season": p.season} for p in s.pairs],
         "buoys": [{"venue": b.venue, "id": b.id, "lat": b.lat, "lon": b.lon, "anem_m": b.anem_m,
-                   "years": ndbc.file_years(s.buoy_files(b.venue))}
+                   "years": ndbc.file_years(s.buoy_files(b.venue)),
+                   "sample_distance_nm": round(ndbc.bearing_distance(*s.sample_point(b.venue), b.lat, b.lon)[0], 1)}
                   for b in s.buoys.values()],
     }
 

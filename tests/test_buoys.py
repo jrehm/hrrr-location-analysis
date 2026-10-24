@@ -130,6 +130,7 @@ def test_set_buoy_writes_study_and_starts_job_remove_keeps_files(api, monkeypatc
     assert r.status_code == 202 and started == [("buoy", {"venue": "abc"})]
     b = c.get("/api/studies/demo").json()["buoys"][0]
     assert (b["id"], b["anem_m"]) == ("45020", 2.4)
+    assert b["sample_distance_nm"] == pytest.approx(6.3, abs=0.1)    # sample point 2 nm east of the club, buoy 6 nm north: hypot(2, 6)
     s = load_study(root / "demo" / "study.toml")
     assert s.buoys["abc"].caches == ("sep_2022_2023",) and s.buoys["abc"].dir == "Buoy_45020"
     assert s.fingerprint() == load_study(root / "demo" / "study.toml").fingerprint()

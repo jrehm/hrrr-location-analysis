@@ -7,6 +7,8 @@ import { BuoySetup } from "./page_buoys.js";
 const Mix = ({ r }) => { const c = binColors(); return html`<div class="bar" style="width:170px;margin:0"> ${[r.pct_lt5, r.pct_5_20, r.pct_ge20].map((v, i) =>
   html`<i title=${pct(v)} style=${{ width: v + "%", background: [c[0], c[2], c[4]][i] }}></i>`)}</div>`; };
 
+const StationLink = ({ id }) => html`<a href=${`https://www.ndbc.noaa.gov/station_page.php?station=${encodeURIComponent(id)}`} target="_blank" rel="noopener" title="NDBC station page">${id}</a>`;
+
 // (i) button plus a native <dialog>: Esc, the close button or a click outside dismisses it.
 function Info({ title, children }) {
   const ref = useRef(null);
@@ -47,7 +49,7 @@ function BuoyList({ meta, onChanged }) {
     ${err && html`<p class="err small">${err}</p>`}
     ${meta.venues.map((v) => { const b = meta.buoys.find((x) => x.venue === v.key);
       return html`<div key=${v.key} style="padding:6px 0;border-top:1px solid var(--line)"><div class="row">
-        <span class="grow"><b>${v.name}</b>: ${b ? html`buoy ${b.id}, ${yrs(b)}, anemometer ${b.anem_m} m` : html`<span class="muted">no validation buoy chosen, so HRRR has not been checked against observations for this venue</span>`}</span>
+        <span class="grow"><b>${v.name}</b>: ${b ? html`buoy <${StationLink} id=${b.id} />, ${yrs(b)}, anemometer ${b.anem_m} m` : html`<span class="muted">no validation buoy chosen, so HRRR has not been checked against observations for this venue</span>`}</span>
         ${canEdit && setup !== v.key && html`<button onClick=${() => setSetup(v.key)}>${b ? "Change buoy" : "Choose buoy"}</button>`}
         ${canEdit && b && html`<button onClick=${() => remove(v.key)}>Remove</button>`}</div>
         ${setup === v.key && html`<${BuoySetup} meta=${meta} venue=${v.key} onCancel=${() => setSetup(null)} onStarted=${() => { setSetup(null); onChanged(); }} />`}</div>`; })}</div>`;
@@ -64,9 +66,10 @@ export function ValidationPage({ meta, data, onChanged }) {
     <${BuoyList} meta=${meta} onChanged=${onChanged} />
     <div class="card"><h2>HRRR versus buoys <${HowInfo} /></h2>
       <p class="small muted">Bias is HRRR minus buoy (negative: HRRR reads low). Buoy winds are scaled from the anemometer height to 10 m with a neutral log profile.
-        ${meta.buoys.map((b) => html` Buoy ${b.id} serves ${b.venue.toUpperCase()}.`)}</p>
+        ${meta.buoys.map((b) => html` Buoy <${StationLink} id=${b.id} /> serves ${b.venue.toUpperCase()}.`)}</p>
       <${Table} cols=${[
-        { head: "Venue", cell: (r) => `${r.venue.toUpperCase()} (${r.buoy})` },
+        { head: "Venue", left: true, cell: (r) => html`${r.venue.toUpperCase()} (<${StationLink} id=${r.buoy} />)` },
+        { head: "Buoy to sample point (nm)", cell: (r) => { const b = buoy(r.venue); return b ? fmt(b.sample_distance_nm) : "–"; } },
         ...(all ? [{ head: "HRRR sampling", left: true, cell: (r) => r.hrrr_sampling }, { head: "Height adj.", left: true, cell: (r) => r.height_adj }, { head: "Subset", left: true, cell: (r) => r.subset }] : []),
         { head: "Pairs", cell: (r) => r.n }, { head: "Bias (kt)", cell: (r) => fmt(r.bias_kt) },
         { head: "RMSE (kt)", cell: (r) => fmt(r.rmse_kt) }, { head: "Correlation", cell: (r) => fmt(r.corr_r, 2) },
