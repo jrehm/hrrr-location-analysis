@@ -58,8 +58,9 @@ export function ResultsPage({ meta, data }) {
       <div class="bar">${[c.pct_lt5, c.pct_5_20, c.pct_ge20].map((v, k) => html`<i title=${pct(v)} style=${{ width: v + "%", background: [colors[0], colors[2], colors[4]][k] }}></i>`)}</div>
       <div class="legend"><span>${"<"} 5 kt ${pct(c.pct_lt5)}</span><span>5–20 kt ${pct(c.pct_5_20)}</span><span>≥ 20 kt ${pct(c.pct_ge20, 1)}</span></div>
       <${Rose} data=${roses[i]} maxPct=${roseMax} />
-      <p class="small muted">${c.n} racing hours. Rose bars show % of hours by direction the wind blows from, on a common scale for all windows.</p>
+      <p class="small muted">${c.n} racing hours.</p>
     </div>`; })}</div>
+    <p class="small muted">Rose bars show % of hours by direction the wind blows from, on a common scale for all windows.</p>
     <div class="card"><h2>Year by year</h2><${ChartCanvas} config=${lineCfg} />
       <details><summary class="small muted">Table view</summary>
         <${Table} cols=${[{ head: "Year", cell: (r) => r.year }, ...meta.windows.map((w) => ({ head: label(w.venue, w.season),

@@ -7,7 +7,12 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 `__version__` in `src/hrrr_wind/__init__.py`; the web app shows it in the footer and `/api/health`.
 
 ## [Unreleased]
+### Added
+- Day / Night / Auto theme toggle at the right of the study tab bar (remembered in the browser).
+
 ### Changed
+- The study header and tabs stay fixed while the page content scrolls; inactive study tabs contrast more with the background.
+- The wind-rose explanation appears once under the venue cards instead of on every card.
 - Charts have nine distinct series colors (and marker shapes) instead of three that repeated. A study may now hold
   up to 9 venues and 9 windows (was 4 and 6); that is the hard limit.
 

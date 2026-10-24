@@ -11,8 +11,18 @@ import { NewStudyPage } from "./page_new.js";
 import { StatusStrip } from "./status.js";
 import { yearsSummary } from "./years.js";
 
-const theme = new URLSearchParams(location.search).get("theme");  // ?theme=dark|light forces a theme
-if (theme) document.documentElement.dataset.theme = theme;
+const stored = (() => { try { return localStorage.getItem("theme"); } catch { return null; } })();
+const theme = new URLSearchParams(location.search).get("theme") || stored;  // ?theme=dark|light forces a theme; auto follows the OS
+if (theme === "dark" || theme === "light") document.documentElement.dataset.theme = theme;
+const pickTheme = (t) => { // charts read their colors at draw time, so reload to repaint them
+  try { localStorage.setItem("theme", t); } catch {}
+  const u = new URL(location.href); u.searchParams.delete("theme"); history.replaceState(null, "", u.href); location.reload();
+};
+function ThemeToggle() {
+  const cur = theme === "dark" || theme === "light" ? theme : "auto";
+  return html`<div class="seg theme" role="group" aria-label="Color theme">${[["light", "Day"], ["dark", "Night"], ["auto", "Auto"]].map(([k, t]) =>
+    html`<button class=${cur === k ? "on" : ""} aria-pressed=${cur === k} onClick=${() => cur !== k && pickTheme(k)}>${t}</button>`)}</div>`;
+}
 
 // Routes: #/ (opens the first study), #/new, #/s/<id>/<page>[/<arg>]
 const parse = () => {
@@ -35,7 +45,8 @@ function StudyTabs({ studies, sid, readonly, isNew }) {
     return html`<a href=${`#/s/${s.id}/overview`} class=${s.id === sid ? "on" : ""} title=${s.name + (dot ? ` (${dot[0]})` : "")}>
       <span class="nm">${s.name}</span>${s.locked && html`<span class="lock" aria-label="locked reference study">🔒</span>`}
       ${dot && html`<span class=${"dot " + dot[1]} />`}</a>`; })}
-    ${!readonly && html`<a href="#/new" class=${"plus" + (isNew ? " on" : "")} title="New study" aria-label="New study">+</a>`}</div></nav>`;
+    ${!readonly && html`<a href="#/new" class=${"plus" + (isNew ? " on" : "")} title="New study" aria-label="New study">+</a>`}
+    <${ThemeToggle} /></div></nav>`;
 }
 
 function App() {
@@ -77,8 +88,8 @@ function App() {
   };
   const done = async (id, text) => { await refresh(id); setNotice(text); go(`#/s/${id}/${text.startsWith("Added") ? "inputs" : "overview"}`); };
   const bar = html`<${StudyTabs} studies=${studies} sid=${route.page === "new" ? null : sid} isNew=${route.page === "new"} readonly=${readonly} />`;
-  const Shell = (title, body) => html`${bar}<header class="top"><div class="wrap"><h1>${title}</h1>
-      ${readonly && html`<span class="badge">read-only demo</span>`}</div><div style="height:12px"></div></header>
+  const Shell = (title, body) => html`<div class="stick">${bar}<header class="top"><div class="wrap"><h1>${title}</h1>
+      ${readonly && html`<span class="badge">read-only demo</span>`}</div><div style="height:12px"></div></header></div>
     <main class="wrap">${body}</main>`;
 
   if (route.page === "home") return html`<main class="wrap"><p class="muted">Loading…</p></main>`;
@@ -99,14 +110,14 @@ function App() {
   else if (!d) body = html`<p class="muted">Loading results…</p>`;
   else body = html`<${Page} meta=${meta} data=${d} />`;
 
-  return html`${bar}<header class="top"><div class="wrap">
+  return html`<div class="stick">${bar}<header class="top"><div class="wrap">
       ${renaming === null ? html`<h1>${meta.name}</h1>${canEdit && html`<button class="icon" title="Rename this study" aria-label="Rename this study" onClick=${() => setRenaming(meta.name)}>✎</button>`}`
         : html`<div class="row" style="flex:1;min-width:260px"><input type="text" maxlength="80" value=${renaming} onInput=${(e) => setRenaming(e.target.value)}
             onKeyDown=${(e) => e.key === "Enter" && rename()} /><button class="primary" onClick=${rename}>Save</button><button onClick=${() => setRenaming(null)}>Cancel</button></div>`}
       <span class="sub">HRRR 10 m wind, years ${yearsSummary(meta)}, racing ${meta.race_label}</span>
       ${meta.readonly && html`<span class="badge">read-only demo</span>`}${meta.locked && html`<span class="badge">locked reference study</span>`}
       <nav class="tabs">${tabs.map(([k, t]) => html`<a href=${`#/s/${meta.id}/${k}`} class=${tab === k ? "on" : ""}>${t}</a>`)}</nav>
-    </div></header>
+    </div></header></div>
     <main class="wrap">
       <${StatusStrip} meta=${meta} onChanged=${() => refresh()} />
       ${notice && html`<div class="notice"><span>${notice}</span><a href="#" onClick=${(e) => { e.preventDefault(); setNotice(null); }}>dismiss</a></div>`}
