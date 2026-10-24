@@ -3,7 +3,7 @@
 Python tool + studies for HRRR wind climatology at sailing venues (see README.md).
 
 ## Layout
-- `src/hrrr_wind/` library: `climatology.py` (single-club CLI, presets), `config.py` (study.toml), `cache.py` (only network code), `stats.py`, `validation.py`, `plots.py`, `outputs.py`, `venue_analysis.py` (thin CLI), `api/app.py` (FastAPI, JSON only) and `web/static/` (Preact + htm UI, no build step, vendored libs)
+- `src/hrrr_wind/` library: `climatology.py` (single-club CLI, presets), `config.py` (study.toml), `cache.py` and `ndbc.py` (the only network code), `stats.py`, `validation.py`, `plots.py`, `outputs.py`, `venue_analysis.py` (thin CLI), `api/app.py` (FastAPI, JSON only) and `web/static/` (Preact + htm UI, no build step, vendored libs)
 - `tests/` pytest; `legacy/` frozen v1.0/v1.1 + the nine-venue 2028 proposal (do not edit)
 - `studies/gtyc_hyc_2028/` the GTYC vs HYC study: `study.toml`, `NOTES.md` (read first), `build_report.py`, `outputs/` (CSVs, figures, wind caches), `data/buoys/`
 

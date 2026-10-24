@@ -98,7 +98,7 @@ function App() {
 
   if (!meta) return html`${bar}<main class="wrap"><p class="muted">Loading…</p></main>`;
   const canEdit = !meta.readonly && !meta.locked;
-  const tabs = TABS.filter(([k]) => !(k === "validation" && !meta.buoys.length));
+  const tabs = TABS.filter(([k]) => !(k === "validation" && !meta.buoys.length && !canEdit));
   const tab = route.page === "venue" || route.page === "add" ? "inputs" : route.page;
   const Page = PAGES[route.page] || ResultsPage;
   let body;
@@ -108,7 +108,7 @@ function App() {
   else if (route.page === "inputs") body = html`<${VenuesPage} meta=${meta} onChanged=${() => refresh()} onEdited=${edited} />`;
   else if (derr) body = html`<p class="err">${derr}</p>`;
   else if (!d) body = html`<p class="muted">Loading results…</p>`;
-  else body = html`<${Page} meta=${meta} data=${d} />`;
+  else body = html`<${Page} meta=${meta} data=${d} onChanged=${() => refresh()} />`;
 
   return html`<div class="stick">${bar}<header class="top"><div class="wrap">
       ${renaming === null ? html`<h1>${meta.name}</h1>${canEdit && html`<button class="icon" title="Rename this study" aria-label="Rename this study" onClick=${() => setRenaming(meta.name)}>✎</button>`}`

@@ -17,7 +17,7 @@ from pathlib import Path
 
 from hrrr_wind.config import cache_plan, FIRST_YEAR, MAX_WINDOW_DAYS, MAX_YEARS  # noqa: F401
 
-KINDS = ("cache", "analyze", "validate", "run_study")
+KINDS = ("cache", "analyze", "validate", "run_study", "buoy")
 TAG_RE = re.compile(r"^[A-Za-z0-9_]{1,40}$")
 FILES_PER_SECOND = 1.9                 # observed download rate, used only for the estimate
 STALL_SECONDS = 600                    # no output this long = hung connection: stop the job so it can resume
@@ -113,6 +113,8 @@ def build_command(study_path, kind, params):
            "--progress-lines", "--study", str(study_path), "run" if kind == "run_study" else kind]
     if kind == "run_study":
         cmd += ["--max-rss-gb", str(params["max_rss_gb"])]
+    elif kind == "buoy":
+        cmd += ["--venue", params["venue"]]
     elif kind == "cache":
         cmd += ["--venues", *params["venues"], "--tag", params["tag"],
                 "--years", *map(str, params["years"]), "--start", params["start"],
@@ -160,9 +162,15 @@ class JobManager:
     def submit(self, study_id, study, study_path, kind, params=None):
         if kind not in KINDS:
             raise JobError(f"kind must be one of {KINDS}")
-        params = validate_cache_params(study, params or {}) if kind == "cache" else {}
-        if kind == "run_study":
-            params = validate_run_params(study, params or {})
+        asked, params = params or {}, {}
+        if kind == "cache":
+            params = validate_cache_params(study, asked)
+        elif kind == "run_study":
+            params = validate_run_params(study, asked)
+        elif kind == "buoy":
+            if asked.get("venue") not in study.buoys:
+                raise JobError("buoy job needs a venue that has a buoy")
+            params = {"venue": asked["venue"]}
         with self._lock:
             busy = self.running()
             if busy:

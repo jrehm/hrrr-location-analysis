@@ -20,9 +20,9 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from hrrr_wind import __version__
+from hrrr_wind import __version__, ndbc
 from hrrr_wind.cache import box_cells, load_cache
-from hrrr_wind.config import (FIRST_YEAR, LOCKED_STUDIES, SLUG_RE, STUDIES_DIR, DefinitionError, cache_plan,
+from hrrr_wind.config import (FIRST_YEAR, LOCKED_STUDIES, SLUG_RE, STUDIES_DIR, DefinitionError, buoy_caches, cache_plan,
                               cache_years, load_study, set_years, study_dict, validate_definition, window_tag,
                               write_study)
 from hrrr_wind.climatology import project_point
@@ -93,7 +93,8 @@ def is_stale(sid, s, summary):
         return True                     # written before the 5-20 kt sweet spot: columns are missing
     if state.exists():
         try:
-            return json.loads(state.read_text()).get("fingerprint") != s.fingerprint()
+            return json.loads(state.read_text()).get("fingerprint") not in (s.fingerprint(), s.fingerprint(buoys=[]),
+                                                                         s.fingerprint(buoys=s.buoys.values()))
         except ValueError:
             return True
     return study_paths()[sid].stat().st_mtime > summary.stat().st_mtime
@@ -189,7 +190,8 @@ def study_meta(sid: str):
                      "cache": window_info(s, w)} for w in s.windows],
         "year_chips": year_chips(s),
         "pairs": [{"a": p.a, "b": p.b, "season": p.season} for p in s.pairs],
-        "buoys": [{"venue": b.venue, "id": b.id, "lat": b.lat, "lon": b.lon}
+        "buoys": [{"venue": b.venue, "id": b.id, "lat": b.lat, "lon": b.lon, "anem_m": b.anem_m,
+                   "years": ndbc.file_years(s.buoy_files(b.venue))}
                   for b in s.buoys.values()],
     }
 
@@ -525,6 +527,96 @@ def remove_window(sid: str, venue: str, season: str):
 def edit_years(sid: str, req: YearList):
     """Set the study's years. New years are downloaded next; removed years stay on disk (excluded)."""
     return edit_study(sid, lambda d, study: set_years(d, req.years, study.out_dir))
+
+
+BUOY_SEARCH_NM = 60.0
+
+
+def stations_or_502():
+    try:
+        return ndbc.stations()
+    except ConnectionError as e:
+        raise HTTPException(502, str(e))
+
+
+def archive_or_502():
+    try:
+        return ndbc.archive_years()
+    except ConnectionError as e:
+        raise HTTPException(502, str(e))
+
+
+@app.get("/api/studies/{sid}/venues/{key}/buoys")
+def nearby_buoys(sid: str, key: str, radius_nm: float = Query(BUOY_SEARCH_NM, gt=0, le=150)):
+    """NDBC stations near a venue, each with whether the venue's HRRR download already covers it
+    and, if not, how big an extra download would be."""
+    require_writable()
+    study = get_study(sid)
+    if key not in study.venues:
+        raise HTTPException(404, "no such venue")
+    v = study.venues[key]
+    out, archive = [], archive_or_502()
+    for st in ndbc.stations_near(stations_or_502(), v.lat, v.lon, radius_nm):
+        extra = [c for c in buoy_caches(study, key, st["id"], st["lat"], st["lon"]) if c["extra"]]
+        files = sum(len(study.years) * 24 * ((datetime.strptime(f"2001-{c['end']}", "%Y-%m-%d")
+                                              - datetime.strptime(f"2001-{c['start']}", "%Y-%m-%d")).days + 1) for c in extra)
+        have = [y for y in archive.get(st["id"].lower(), []) if y in study.years]
+        out.append({**st, "years": have, "covered": not extra, "extra_files": files,
+                    "extra_minutes": round(files / FILES_PER_SECOND / 60, 1),
+                    "anem_m": ndbc.KNOWN_ANEM_M.get(st["id"], ndbc.DEFAULT_ANEM_M),
+                    "anem_known": st["id"] in ndbc.KNOWN_ANEM_M})
+    return {"venue": {"key": key, "name": v.name, "lat": v.lat, "lon": v.lon}, "stations": out}
+
+
+@app.get("/api/ndbc/{station}/anemometer")
+def station_anemometer(station: str):
+    """Anemometer height read from the station's NDBC page: {anem_m, source}; falls back to a typical value."""
+    require_writable()
+    if not ndbc.ID_RE.match(station):
+        raise HTTPException(422, "bad station id")
+    try:
+        h = ndbc.anemometer_height(station)
+    except ConnectionError:
+        h = None
+    if h is not None:
+        return {"anem_m": h, "source": "page"}
+    known = ndbc.KNOWN_ANEM_M.get(station)
+    return {"anem_m": known or ndbc.DEFAULT_ANEM_M, "source": "known" if known else "default"}
+
+
+class NewBuoy(BaseModel):
+    venue: str
+    id: str
+    anem_m: float
+
+
+@app.post("/api/studies/{sid}/buoys", status_code=202)
+def set_buoy(sid: str, req: NewBuoy):
+    """Give a venue a validation buoy (replacing any it had), then fetch its data and validate in a job."""
+    require_writable()
+    study = get_study(sid)
+    if req.venue not in study.venues:
+        raise HTTPException(404, "no such venue")
+    st = next((x for x in stations_or_502() if x["id"] == req.id), None)
+    if st is None:
+        raise HTTPException(422, f"{req.id} is not an active NDBC station that reports wind")
+    if not any(y in study.years for y in archive_or_502().get(st["id"].lower(), [])):
+        raise HTTPException(422, f"NDBC has no archived observations for {st['id']} in this study's years")
+    plan = buoy_caches(study, req.venue, st["id"], st["lat"], st["lon"])
+    row = {"venue": req.venue, "id": st["id"], "lat": st["lat"], "lon": st["lon"], "anem_m": req.anem_m,
+           "dir": ndbc.buoy_dir_name(st["id"]), "pattern": ndbc.buoy_pattern(st["id"]), "caches": [c["tag"] for c in plan]}
+    edit_study(sid, lambda d, _s: d.__setitem__("buoys", [*(b for b in d.get("buoys", []) if b["venue"] != req.venue), row]))
+    try:
+        return MANAGER.submit(sid, get_study(sid), study_paths()[sid], "buoy", {"venue": req.venue}).public()
+    except JobConflict as e:
+        raise HTTPException(409, str(e))
+
+
+@app.delete("/api/studies/{sid}/buoys/{venue}")
+def remove_buoy(sid: str, venue: str):
+    """Stop validating a venue against its buoy. Downloaded files stay on disk."""
+    get_study(sid)
+    return edit_study(sid, lambda d, _s: d.__setitem__("buoys", [b for b in d.get("buoys", []) if b["venue"] != venue]))
 
 
 class JobRequest(BaseModel):

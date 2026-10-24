@@ -32,6 +32,7 @@ LOCKED_STUDIES = frozenset({"gtyc_hyc_2028"})   # reference study: never rewritt
 FIRST_YEAR = 2015              # HRRR archive starts 2014-09-30
 MAX_YEARS, MAX_WINDOW_DAYS = 15, 45
 MAX_VENUES, MAX_WINDOWS = 9, 9     # one chart color per window (web/static/style.css has 9 series colors)
+BUOY_MARGIN_NM = 3.0           # a buoy this close to the edge of a cache box is treated as outside it
 BUFFER_DAYS = 3                # cache covers the core window +/- this many days
 CONUS_LAT, CONUS_LON = (21.0, 53.0), (-135.0, -60.0)   # HRRR domain (rough bounds)
 
@@ -159,11 +160,14 @@ class Study:
             found |= cache_years(self.out_dir, w.venue, t)
         return found
 
-    def fingerprint(self):
-        """Hash of everything that changes the analysis (not the study's display name)."""
+    def fingerprint(self, buoys=None):
+        """Hash of everything that changes the analysis (not the study's display name, and not the
+        buoys, which only affect validation). Passing a buoy list reproduces the hash older results carry."""
         parts = (self.years, self.race_start, self.race_end, self.utc_offset, self.tz_abbr,
                  self.bootstrap_draws, self.seed, self.sens_offshore_nm, self.sens_radius_nm,
-                 list(self.venues.values()), self.windows, self.pairs, list(self.buoys.values()))
+                 list(self.venues.values()), self.windows, self.pairs)
+        if buoys is not None:
+            parts += (list(buoys),)
         return hashlib.sha256(repr(parts).encode()).hexdigest()
 
     def buoy_files(self, venue):
@@ -295,6 +299,23 @@ def cache_plan(study):
             start, end = buffered_span(w.core)
             groups.setdefault((tag, start, end, tuple(years)), []).append(w.venue)
     return [{"tag": t, "start": a, "end": b, "years": list(y), "venues": v} for (t, a, b, y), v in groups.items()]
+
+
+def buoy_caches(study, venue, buoy_id, lat, lon):
+    """Cache tags that supply HRRR at a buoy, as [{tag, start, end, extra}].
+
+    A venue's window caches cover the buoy when it sits well inside their box (the 2 nm sampling
+    box plus a margin). Otherwise one extra cache per distinct window span is centered on the buoy
+    (``extra``: tag ``val_<id>_<MMDD>_<MMDD>``, filed under the venue key).
+    """
+    v = study.venues[venue]
+    dy, dx = (lat - v.lat) * 60.0, (lon - v.lon) * 60.0 * math.cos(math.radians(v.lat))
+    wins = study.windows_for(venue)
+    if max(abs(dx), abs(dy)) <= CACHE_HALF_WIDTH_NM - BUOY_MARGIN_NM:
+        return [{"tag": t, "start": None, "end": None, "extra": False} for t in dict.fromkeys(t for w in wins for t in w.tags)]
+    spans = dict.fromkeys(buffered_span(w.core) for w in wins)
+    return [{"tag": f"val_{buoy_id}_{a.replace('-', '')}_{b.replace('-', '')}", "start": a, "end": b, "extra": True}
+            for a, b in spans]
 
 
 def set_years(d, years, out_dir):

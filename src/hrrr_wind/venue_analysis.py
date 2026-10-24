@@ -13,9 +13,9 @@ from datetime import datetime
 import matplotlib
 import pandas as pd
 
-from hrrr_wind import outputs
+from hrrr_wind import ndbc, outputs
 from hrrr_wind.cache import MemoryLimitExceeded, build_cache, fetch_land_mask
-from hrrr_wind.config import cache_plan, load_study
+from hrrr_wind.config import buoy_caches, cache_plan, load_study
 from hrrr_wind.stats import run_analysis, sensitivity_grid
 from hrrr_wind.validation import run_validation
 
@@ -80,6 +80,38 @@ def cmd_run(study, args):
     outputs.write_analysis(study, res)
     if study.buoys:
         outputs.write_validation(study, run_validation(study, progress=scaled(report, a_end, 1.0)))
+
+
+def fetch_buoy_data(study, venue, report=None):
+    """Download a buoy's NDBC files for the study years, then any HRRR cache centered on the buoy.
+
+    Existing files and caches are kept. HRRR is fetched only for years the buoy has data for.
+    """
+    b = study.buoys[venue]
+    say = report or (lambda frac, msg="": None)
+    say(0.0, f"downloading buoy {b.id} observations")
+    got = ndbc.download_stdmet(b.id, study.years, study.buoy_dir / b.dir)
+    logger.info(f"buoy {b.id}: saved {got['saved']}, already had {got['existing']}, none published for {got['missing']}")
+    years = [y for y in ndbc.file_years((study.buoy_dir / b.dir).glob(b.pattern)) if y in study.years]
+    if not years:
+        raise SystemExit(f"NDBC has no observations for buoy {b.id} in {study.years[0]}-{study.years[-1]}; "
+                         "choose another buoy or other years")
+    todo = [c for c in buoy_caches(study, venue, b.id, b.lat, b.lon)
+            if c["extra"] and not study.cache_path(venue, c["tag"]).exists()]
+    for k, c in enumerate(todo):
+        build_cache(study.out_dir, [venue], years, c["tag"], c["start"], c["end"], max_rss_gb=4.0, chunk_hours=24,
+                    clubs={venue: (b.lat, b.lon)},
+                    progress=lambda year, chunk, n, k=k: say(0.1 + 0.8 * (k + (years.index(year) + chunk / n) / len(years)) / len(todo),
+                                                             f"downloading HRRR at buoy {b.id}: {year}"))
+
+
+def cmd_buoy(study, args):
+    """Fetch what validation needs for one buoy, then validate."""
+    if args.venue not in study.buoys:
+        raise SystemExit(f"{args.venue} has no buoy in this study")
+    report = emit(args)
+    fetch_buoy_data(study, args.venue, scaled(report, 0.0, 0.9))
+    outputs.write_validation(study, run_validation(study, progress=scaled(report, 0.9, 1.0)))
 
 
 def cmd_sensitivity(study, args):
@@ -149,6 +181,8 @@ def main(argv=None):
                             help="Abort if this process exceeds this resident memory")
             sp.add_argument("--chunk-hours", type=int, default=72,
                             help="Timestamps fetched per FastHerbie call (memory control)")
+    buoy = sub.add_parser("buoy", help="download a buoy's observations (and HRRR at the buoy if needed), then validate")
+    buoy.add_argument("--venue", required=True)
     mask = sub.add_parser("landmask", help="fetch and cache the land mask around a position (for map previews)")
     mask.add_argument("--out", required=True)
     mask.add_argument("--key", required=True)
@@ -162,7 +196,7 @@ def main(argv=None):
     if getattr(args, "venues", None) is None:
         args.venues = list(study.venues)
     {"run": cmd_run, "cache": cmd_cache, "sensitivity": cmd_sensitivity,
-     "analyze": cmd_analyze, "validate": cmd_validate}[args.cmd](study, args)
+     "analyze": cmd_analyze, "validate": cmd_validate, "buoy": cmd_buoy}[args.cmd](study, args)
 
 
 if __name__ == "__main__":

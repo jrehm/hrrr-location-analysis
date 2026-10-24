@@ -8,10 +8,15 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 
 ## [Unreleased]
 ### Added
+- Set up validation from the Validation tab: choose a nearby NDBC buoy for each venue on a satellite map (stations within
+  60 nm that archived wind in the study's years), confirm the anemometer height, and a `buoy` job downloads the
+  observations, fetches HRRR around the buoy when it lies outside the venue's cache box (with a size estimate up front),
+  and validates. Buoys can be changed or removed; downloaded files stay on disk. New `ndbc.py` holds the NOAA network code. The anemometer height is read from the buoy's NDBC station page. An (i) button on the Buoys card explains the steps, and the search radius can be widened (30 to 150 nm).
 - Day / Night / Auto theme toggle at the right of the study tab bar (remembered in the browser).
 - An (i) button on the Validation page opens a dismissable explanation of how HRRR is compared with the buoys.
 
 ### Changed
+- Buoys no longer count toward the analysis fingerprint, so adding or changing one does not mark results out of date.
 - The study header and tabs stay fixed while the page content scrolls; inactive study tabs contrast more with the background.
 - The wind-rose explanation appears once under the venue cards instead of on every card.
 - Charts have nine distinct series colors (and marker shapes) instead of three that repeated. A study may now hold
