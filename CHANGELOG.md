@@ -16,6 +16,7 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 - An (i) button on the Validation page opens a dismissable explanation of how HRRR is compared with the buoys.
 
 ### Changed
+- Files tab lists every wind cache on disk, including those of venues removed from the study (marked "removed"), and says what uses each (a window, a buoy or nothing). New **Unused data** card deletes caches and buoy-data folders that nothing uses, after a confirmation that states the size. Used data, locked studies, read-only servers, running jobs and folders outside the study are refused.
 - Validation tab: buoy ids link to their NDBC station pages, and the table has a column with the distance from each buoy to the venue's sample point.
 - Buoys no longer count toward the analysis fingerprint, so adding or changing one does not mark results out of date.
 - The study header and tabs stay fixed while the page content scrolls; inactive study tabs contrast more with the background.

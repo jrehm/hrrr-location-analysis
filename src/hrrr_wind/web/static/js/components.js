@@ -79,3 +79,9 @@ export function chartDefaults() {
     scales: { x: { ticks: { color: fg }, grid: { color: line } }, y: { ticks: { color: fg }, grid: { color: line } } },
   };
 }
+
+// A red-button confirmation box shown in place; text says exactly what will happen.
+export function Confirm({ text, label: go, onYes, onNo, busy, err }) {
+  return html`<div class="confirm"><div class="small">${text}</div>${err && html`<div class="err small">${err}</div>`}
+    <div class="row"><button class="danger" disabled=${busy} onClick=${onYes}>${go}</button><button onClick=${onNo}>Cancel</button></div></div>`;
+}

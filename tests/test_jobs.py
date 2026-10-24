@@ -94,7 +94,9 @@ def test_unknown_kind_and_readonly_mode(api, monkeypatch):
 def test_meta_lists_caches_and_build_command_shape(api):
     c, _, tmp = api
     (tmp / "cache_gtyc_sep_x.npz").write_bytes(b"x" * 10)
-    assert {"venue": "gtyc", "tag": "sep_x", "mb": 0.0, "years": [], "used": False} in c.get(f"/api/studies/{SID}").json()["caches"]
+    row = next(x for x in c.get(f"/api/studies/{SID}").json()["caches"] if x["tag"] == "sep_x")
+    assert {k: row[k] for k in ("venue", "mb", "years", "used", "used_by", "in_study")} == {
+        "venue": "gtyc", "mb": 0.0, "years": [], "used": False, "used_by": None, "in_study": True}
     cmd = jobs.build_command("/s/study.toml", "cache", {**GOOD, "start_hour": 0, "end_hour": 23, "max_rss_gb": 4.0})
     assert cmd[4:7] == ["hrrr_wind.venue_analysis", "--progress-lines", "--study"] and "--max-rss-gb" in cmd
     assert jobs.estimate({"years": [2020, 2021], "start": "09-08", "end": "09-14"})["files"] == 2 * 7 * 24

@@ -7,6 +7,8 @@ this module; the flag is reported to the UI so it can hide controls added later)
 import json
 import math
 import os
+import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -22,7 +24,7 @@ from pydantic import BaseModel, Field
 
 from hrrr_wind import __version__, ndbc
 from hrrr_wind.cache import box_cells, load_cache
-from hrrr_wind.config import (FIRST_YEAR, LOCKED_STUDIES, SLUG_RE, STUDIES_DIR, DefinitionError, buoy_caches, cache_plan,
+from hrrr_wind.config import (_years_of, FIRST_YEAR, LOCKED_STUDIES, SLUG_RE, STUDIES_DIR, DefinitionError, buoy_caches, cache_plan,
                               cache_years, load_study, set_years, study_dict, validate_definition, window_tag,
                               write_study)
 from hrrr_wind.climatology import project_point
@@ -37,6 +39,10 @@ RESULT_FILES = {"summary": "summary_stats", "per_year": "per_year_stats",
 
 app = FastAPI(title="HRRR Wind Analysis", version=__version__)
 MANAGER = JobManager()
+
+
+CACHE_FILE_RE = re.compile(r"^cache_([a-z][a-z0-9]{0,11})_([A-Za-z0-9_]{1,60})\.npz$")
+BUOY_DIR_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,79}$")
 
 
 def is_readonly():
@@ -139,17 +145,38 @@ def list_studies():
 
 
 def list_caches(study):
-    """Wind caches present in the study's output folder: venue, tag, size, years inside, and whether a window uses it."""
-    used = {(w.venue, t) for w in study.windows for t in w.tags}
+    """Every wind cache in the study's output folder: venue, tag, size, years inside, and what uses it.
+
+    Venue keys have no underscores, so cache_<venue>_<tag>.npz splits cleanly even for a venue that was
+    removed from the study (``in_study`` false). ``used_by`` is "a window", "a buoy" or None.
+    """
+    win = {(w.venue, t) for w in study.windows for t in w.tags}
+    buoy = {(b.venue, t) for b in study.buoys.values() for t in b.caches}
     out = []
     for p in sorted(study.out_dir.glob("cache_*.npz")) if study.out_dir.exists() else []:
-        for v in study.venues:
-            prefix = f"cache_{v}_"
-            if p.name.startswith(prefix):
-                tag = p.stem[len(prefix):]
-                out.append({"venue": v, "tag": tag, "mb": round(p.stat().st_size / 1e6, 1),
-                            "years": sorted(cache_years(study.out_dir, v, tag)), "used": (v, tag) in used})
+        m = CACHE_FILE_RE.match(p.name)
+        if not m:
+            continue
+        v, tag = m.groups()
+        out.append({"file": p.name, "venue": v, "tag": tag, "mb": round(p.stat().st_size / 1e6, 1),
+                    "years": sorted(_years_of(str(p), p.stat().st_mtime_ns)), "in_study": v in study.venues,
+                    "used_by": "a window" if (v, tag) in win else "a buoy" if (v, tag) in buoy else None,
+                    "used": (v, tag) in win})
     return out
+
+
+def list_buoy_data(study):
+    """Downloaded buoy observation folders under the study's own data/buoys, and whether a buoy uses each.
+
+    A folder outside the study (HRRR_WIND_BUOY_DIR may share one) is never listed, so it is never offered for deletion.
+    """
+    root = study.buoy_dir
+    if not root.is_dir() or study.root.resolve() not in root.resolve().parents:
+        return []
+    used = {b.dir for b in study.buoys.values()}
+    return [{"dir": d.name, "files": sum(1 for f in d.iterdir() if f.is_file()),
+             "mb": round(sum(f.stat().st_size for f in d.rglob("*") if f.is_file()) / 1e6, 1), "used": d.name in used}
+            for d in sorted(root.iterdir()) if d.is_dir() and not d.name.startswith(".")]
 
 
 def window_info(s, w):
@@ -179,7 +206,7 @@ def study_meta(sid: str):
     return {
         "id": sid, "name": s.name, "years": s.years, "race_label": s.race_label,
         "race_utc": [s.race_start, s.race_end], "utc_offset": s.utc_offset,
-        "tz_abbr": s.tz_abbr, "readonly": is_readonly(), "caches": list_caches(s),
+        "tz_abbr": s.tz_abbr, "readonly": is_readonly(), "caches": list_caches(s), "buoy_data": list_buoy_data(s),
         "locked": sid in LOCKED_STUDIES, "plan": cache_plan(s), "status": study_status(sid, s),
         "has_results": (s.out_dir / "summary_stats.csv").exists(),
         "venues": [{"key": v.key, "name": v.name, "lat": v.lat,
@@ -611,6 +638,44 @@ def set_buoy(sid: str, req: NewBuoy):
         return MANAGER.submit(sid, get_study(sid), study_paths()[sid], "buoy", {"venue": req.venue}).public()
     except JobConflict as e:
         raise HTTPException(409, str(e))
+
+
+def guard_data_delete(sid):
+    """A data file may only be deleted from a writable, unlocked study with no job running on it."""
+    require_writable()
+    study = get_study(sid)
+    if sid in LOCKED_STUDIES:
+        raise HTTPException(403, f"study '{sid}' is the locked reference study; its data is kept")
+    busy = MANAGER.running()
+    if busy and busy.study_id == sid:
+        raise HTTPException(409, "a job is running for this study; wait for it or cancel it first")
+    return study
+
+
+@app.delete("/api/studies/{sid}/caches/{name}")
+def delete_cache(sid: str, name: str):
+    """Delete a wind cache that no window or buoy uses (frees disk space; it can be downloaded again)."""
+    study = guard_data_delete(sid)
+    row = next((c for c in list_caches(study) if c["file"] == name), None)
+    if row is None:
+        raise HTTPException(404, "no such cache")
+    if row["used_by"]:
+        raise HTTPException(409, f"{name} is used by {row['used_by']}; remove that first")
+    (study.out_dir / name).unlink()
+    return {"deleted": name, "mb": row["mb"]}
+
+
+@app.delete("/api/studies/{sid}/buoy-data/{name}")
+def delete_buoy_data(sid: str, name: str):
+    """Delete a downloaded buoy-observation folder that no buoy of the study uses."""
+    study = guard_data_delete(sid)
+    row = next((b for b in list_buoy_data(study) if b["dir"] == name and BUOY_DIR_RE.match(name)), None)
+    if row is None:
+        raise HTTPException(404, "no such buoy data folder")
+    if row["used"]:
+        raise HTTPException(409, f"{name} is used by a buoy; remove the buoy first")
+    shutil.rmtree(study.buoy_dir / name)
+    return {"deleted": name, "mb": row["mb"]}
 
 
 @app.delete("/api/studies/{sid}/buoys/{venue}")

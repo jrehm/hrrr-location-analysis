@@ -1,6 +1,6 @@
 import { useState } from "preact/hooks";
 import { del, post } from "./api.js";
-import { html } from "./components.js";
+import { Confirm, html } from "./components.js";
 import { DateSelect } from "./page_new.js";
 import { MONTHS, label, yearRanges } from "./util.js";
 import { JobsPage } from "./page_jobs.js";
@@ -41,11 +41,6 @@ function AddWindow({ meta, venue, onDone, onCancel }) {
     <p class="small muted">The dates raced each year; 3 days either side are downloaded for context. Years follow the study (${yearRanges(meta.years)}).</p>
     ${err && html`<p class="err small">${err}</p>`}
     <div class="row"><button class="primary" disabled=${busy} onClick=${submit}>Add window</button><button onClick=${onCancel}>Cancel</button></div></div>`;
-}
-
-function Confirm({ text, label: go, onYes, onNo, busy, err }) {
-  return html`<div class="confirm"><div class="small">${text}</div>${err && html`<div class="err small">${err}</div>`}
-    <div class="row"><button class="danger" disabled=${busy} onClick=${onYes}>${go}</button><button onClick=${onNo}>Cancel</button></div></div>`;
 }
 
 export function VenuesPage({ meta, onChanged, onEdited }) {

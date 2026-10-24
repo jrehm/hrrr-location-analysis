@@ -199,6 +199,62 @@ def test_anemometer_endpoint_page_known_default_and_read_only(api, monkeypatch):
         raise ConnectionError("offline")
     monkeypatch.setattr(ndbc, "anemometer_height", down)
     assert c.get("/api/ndbc/agcm4/anemometer").json()["source"] == "default"
-    assert c.get("/api/ndbc/..%2Fx/anemometer").status_code in (404, 422)
+    assert c.get("/api/ndbc/..%2Fx/anemometer").status_code in (404, 405, 422)
     monkeypatch.setenv("HRRR_WIND_READONLY", "1")
     assert c.get("/api/ndbc/clsm4/anemometer").status_code == 403
+
+
+def test_unused_caches_and_buoy_folders_can_be_deleted_used_ones_cannot(api, monkeypatch):
+    c, root = api
+    out, buoys = root / "demo" / "outputs", root / "demo" / "data" / "buoys"
+    out.mkdir(parents=True, exist_ok=True)
+    for name in ("cache_abc_sep_2022_2023.npz", "cache_gone_sep_x.npz", "cache_abc_val_45020_0905_0917.npz"):
+        (out / name).write_bytes(b"x" * 10)
+    for d in ("Buoy_45020", "Buoy_old"):
+        (buoys / d).mkdir(parents=True)
+        (buoys / d / "f.txt.gz").write_bytes(b"x")
+    monkeypatch.setattr(appmod.MANAGER, "submit", lambda *a: type("J", (), {"public": lambda s: {}})())
+    c.post("/api/studies/demo/buoys", json={"venue": "abc", "id": "45020", "anem_m": 2.4})   # uses the window cache + Buoy_45020
+    meta = c.get("/api/studies/demo").json()
+    by = {x["file"]: x for x in meta["caches"]}
+    assert by["cache_abc_sep_2022_2023.npz"]["used_by"] == "a window"
+    assert by["cache_gone_sep_x.npz"]["used_by"] is None and not by["cache_gone_sep_x.npz"]["in_study"]
+    assert {b["dir"]: b["used"] for b in meta["buoy_data"]} == {"Buoy_45020": True, "Buoy_old": False}
+
+    assert c.delete("/api/studies/demo/caches/cache_abc_sep_2022_2023.npz").status_code == 409
+    assert c.delete("/api/studies/demo/caches/cache_nope_x.npz").status_code == 404
+    assert c.delete("/api/studies/demo/caches/..%2Fstudy.toml").status_code in (404, 405, 422)
+    assert c.delete("/api/studies/demo/buoy-data/Buoy_45020").status_code == 409
+    assert c.delete("/api/studies/demo/buoy-data/..").status_code in (404, 405, 422)
+    assert (root / "demo" / "study.toml").exists() and (out / "cache_abc_sep_2022_2023.npz").exists()
+
+    assert c.delete("/api/studies/demo/caches/cache_gone_sep_x.npz").json()["deleted"] == "cache_gone_sep_x.npz"
+    assert c.delete("/api/studies/demo/buoy-data/Buoy_old").status_code == 200
+    assert not (out / "cache_gone_sep_x.npz").exists() and not (buoys / "Buoy_old").exists() and (buoys / "Buoy_45020").exists()
+
+
+def test_data_delete_refused_when_read_only_locked_or_busy(api, monkeypatch):
+    c, root = api
+    out = root / "demo" / "outputs"
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "cache_gone_sep_x.npz").write_bytes(b"x")
+    url = "/api/studies/demo/caches/cache_gone_sep_x.npz"
+    monkeypatch.setenv("HRRR_WIND_READONLY", "1")
+    assert c.delete(url).status_code == 403
+    monkeypatch.delenv("HRRR_WIND_READONLY")
+    monkeypatch.setattr(appmod, "LOCKED_STUDIES", frozenset({"demo"}))
+    assert c.delete(url).status_code == 403
+    monkeypatch.setattr(appmod, "LOCKED_STUDIES", frozenset())
+    busy = type("J", (), {"study_id": "demo", "public": lambda self: {}})()
+    monkeypatch.setattr(appmod.MANAGER, "running", lambda: busy)
+    assert c.delete(url).status_code == 409 and (out / "cache_gone_sep_x.npz").exists()
+
+
+def test_buoy_folder_outside_the_study_is_never_listed(api, monkeypatch, tmp_path_factory):
+    c, root = api
+    shared = tmp_path_factory.mktemp("shared") / "buoys"
+    (shared / "Buoy_x").mkdir(parents=True)
+    monkeypatch.setenv("HRRR_WIND_BUOY_DIR", str(shared))
+    appmod.get_study.cache_clear()
+    assert c.get("/api/studies/demo").json()["buoy_data"] == []
+    assert c.delete("/api/studies/demo/buoy-data/Buoy_x").status_code == 404 and (shared / "Buoy_x").exists()

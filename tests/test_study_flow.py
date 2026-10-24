@@ -359,7 +359,8 @@ def test_removing_a_venue_removes_its_pairs_and_buoys_but_not_data(api):
     r = c.delete("/api/studies/demo/venues/two")
     assert r.status_code == 200 and [v["key"] for v in r.json()["venues"]] == ["abc"] and r.json()["pairs"] == []
     assert (out / "cache_two_sep_2022_2023.npz").read_bytes() == b"keep"
-    assert [x for x in c.get("/api/studies/demo").json()["caches"] if x["venue"] == "two"] == []   # no longer a venue
+    two = [x for x in c.get("/api/studies/demo").json()["caches"] if x["venue"] == "two"]
+    assert [(x["in_study"], x["used_by"]) for x in two] == [(False, None)]      # still listed, so it can be deleted
 
 
 def test_edit_endpoints_respect_read_only_locked_and_running_jobs(api, monkeypatch):
