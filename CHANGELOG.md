@@ -7,6 +7,9 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 `__version__` in `src/hrrr_wind/__init__.py`; the web app shows it in the footer and `/api/health`.
 
 ## [Unreleased]
+### Changed
+- The web app's default port is now 8123 (was 8000, which clashed with other local apps); the Dockerfile and README follow. `--port` still overrides it.
+
 ### Added
 - Files tab: a **Buoy data on disk** section (venue, buoy, years, files, size) and a totals row or line at the bottom of every section. The `/api/studies/{id}/files` list now carries file sizes.
 - Delete a whole study in two steps. **Delete this study** (bottom of the Inputs page; the study's name must be typed) moves it to `studies/.trash/`; a **Trash** card (on the Inputs and New study pages) restores a trashed study or empties the trash, which needs a second confirmation where `empty trash` is typed. The locked reference study, read-only servers and studies with a running job are refused.

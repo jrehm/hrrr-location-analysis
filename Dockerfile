@@ -8,6 +8,6 @@ COPY studies ./studies
 ENV HRRR_WIND_STUDIES=/app/studies \
     HRRR_WIND_READONLY=1 \
     PYTHONUNBUFFERED=1
-EXPOSE 8000
-HEALTHCHECK CMD python -c "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/health')"
-CMD ["python", "-m", "hrrr_wind.api", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 8123
+HEALTHCHECK CMD python -c "import urllib.request as u; u.urlopen('http://127.0.0.1:8123/api/health')"
+CMD ["python", "-m", "hrrr_wind.api", "--host", "0.0.0.0", "--port", "8123"]

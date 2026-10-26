@@ -101,7 +101,7 @@ trusting results. To add a club, add an entry to `YACHT_CLUB_PRESETS` in
 ## Web app
 
 ```bash
-python -m hrrr_wind.api            # then open http://127.0.0.1:8000/
+python -m hrrr_wind.api            # then open http://127.0.0.1:8123/
 ```
 
 Pages: **Inputs** (the study's years and venues; each venue's **sample point** page has a satellite map with the club, bearing line, sample point and the HRRR water/land cells being averaged, plus instant racing-hour stats for any bearing, distance and box size), **Overview** (wind roses, year by year, time of day, then the comparison: paired difference with confidence intervals, and sensitivity to the sample point), **Validation** (HRRR vs buoys; bias-adjusted range) and **Files** (downloads, data completeness, and an *Unused data* card that deletes caches and buoy folders nothing uses; removing a venue, window or buoy never deletes data by itself). A whole study is deleted in two steps: *Delete this study* on the Inputs page moves it to `studies/.trash/`, and the *Trash* card restores it or empties the trash for good.
@@ -115,7 +115,7 @@ Studies in `studies/*/study.toml` are discovered automatically (`HRRR_WIND_STUDI
 **Hosted demo.** `HRRR_WIND_READONLY=1` hides the Jobs page and makes every write endpoint return 403, so the app only serves a study's committed results and caches. It needs no HRRR libraries (`pip install .`). A `Dockerfile` builds this read-only image:
 
 ```bash
-docker build -t hrrr-wind-demo . && docker run -p 8000:8000 hrrr-wind-demo
+docker build -t hrrr-wind-demo . && docker run -p 8123:8123 hrrr-wind-demo
 ```
 
 Design notes: FastAPI serves JSON only (`/api/...`, see `/docs` for the generated reference); the UI is Preact + htm served as static files with no build step, and the libraries (Preact, Leaflet, Chart.js) are vendored in `src/hrrr_wind/web/static/vendor/`. Map tiles load from Esri and OpenStreetMap, so the map needs internet. Because the API is pure JSON and each page is a small component in `static/js/`, moving to React later is a mechanical port of the view layer.
