@@ -18,6 +18,7 @@ Semantic versioning. `__version__` in `src/hrrr_wind/__init__.py` is the only pl
 
 ## Where we are
 The new study / add venue flow is implemented (`config.validate_definition`/`write_study`, `POST /api/studies`, `POST /api/studies/{id}/venues`, `run_study` job, `web/static/js/page_new.js`); see README. `docs/HANDOFF_new_study_flow.md` is the original brief.
+Also built (all under `[Unreleased]` in CHANGELOG, v2.0.0 not yet bumped): buoy validation setup from the Validation tab (`ndbc.py`, `buoy` job, `config.buoy_caches`), Files-tab cleanup of unused caches/buoy data, whole-study delete via `studies/.trash/` (`trash.py`), theme toggle, default port 8123. Open items are in `docs/TODO.md`.
 
 ## Rules learned the hard way
 - Long extractions: copy numpy slices (`np.array(..., copy=True)`), checkpoint per year, cap RSS (`--max-rss-gb`), and watch memory, not just logs.

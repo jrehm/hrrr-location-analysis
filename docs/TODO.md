@@ -2,6 +2,7 @@
 
 ## UI
 - [ ] Further UI tweaks (from user testing)
+- [ ] Browser-check light mode and phone width for the buoy setup, Files and Trash pages; real run of the buoy-centered HRRR download (only unit-tested)
 - [ ] Browser-check: remove venue, exclude a year, read-only mode, phone widths (500 px), footer version
 - [ ] "Copy it to a new study" appears in UI text but no copy feature exists: add it or reword
 - [ ] Show "N hours unavailable in YEAR" note on venue cards (archive gaps, e.g. 2016)
@@ -16,5 +17,5 @@
 
 ## Project
 - [ ] CI: bump `actions/checkout` and `actions/setup-python` (Node 20 deprecation)
-- [ ] Build the Docker image (never built; daemon was off)
+- [ ] Build the Docker image (never built; daemon was off; port is now 8123)
 - [ ] Hosted read-only demo (none exists)
