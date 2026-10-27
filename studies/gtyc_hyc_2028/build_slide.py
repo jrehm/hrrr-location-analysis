@@ -75,7 +75,7 @@ def window_title(study, venue, season, window):
 def build_slide(study, venue, season, out_path):
     window = next(w for w in study.windows if w.venue == venue and w.season == season)
     d = load_series(study, venue, window.cache_tag)
-    race = d[(d["md"] >= window.lo) & (d["md"] <= window.hi) & d["hour"].isin(study.race_utc)]
+    race = d[(d["md"] >= window.lo) & (d["md"] <= window.hi) & d["hour"].isin(study.race_utc_for(window.venue))]
     rose = windrose_table(race["spd_kt"], race["dir"])
     stats = pd.read_csv(study.out_dir / "summary_stats.csv")
     s = stats[(stats.venue == venue) & (stats.season == season) & (stats.scope == "core")].iloc[0]

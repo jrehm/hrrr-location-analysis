@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { api, post } from "./api.js";
 import { html, Table } from "./components.js";
-import { label, yearRanges } from "./util.js";
+import { label, short, yearRanges } from "./util.js";
 
 const FILES_PER_SECOND = 1.9;     // observed download rate; for the estimate only
 const MMDD = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
@@ -88,7 +88,7 @@ export function JobsPage({ meta, onChanged }) {
           <div class="row"><button disabled=${busy} onClick=${() => start("analyze")}>Recompute analysis (about 3 min)</button>
             <button disabled=${busy} onClick=${() => start("validate")}>Recompute validation (about 1 min)</button></div></div>
         <div class="card"><h2>Wind caches on disk</h2>
-          <${Table} cols=${[{ head: "Venue", left: true, cell: (c) => c.venue.toUpperCase() }, { head: "Years", left: true, cell: (c) => (c.years.length ? yearRanges(c.years) : "unreadable") }, { head: "Size", cell: (c) => `${c.mb} MB` }]} rows=${meta.caches} /></div>
+          <${Table} cols=${[{ head: "Venue", left: true, cell: (c) => short(c.venue) }, { head: "Years", left: true, cell: (c) => (c.years.length ? yearRanges(c.years) : "unreadable") }, { head: "Size", cell: (c) => `${c.mb} MB` }]} rows=${meta.caches} /></div>
       </div>
     </div>
     ${err && html`<p class="err">${err}</p>`}

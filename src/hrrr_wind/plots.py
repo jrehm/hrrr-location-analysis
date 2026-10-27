@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 
 from hrrr_wind import climatology as clim
+from hrrr_wind import config
 from hrrr_wind.config import KT
 
 
@@ -12,7 +13,7 @@ def summary_figure(study, venue, season, race):
                        "gust_ms": np.nan})
     st = clim.compute_stats(df.assign(valid_time=race["time"]))
     y0, y1 = min(study.years), max(study.years)
-    title = (f"{study.venues[venue].name}\n{season.upper()} core window, "
+    title = (f"{study.venues[venue].name}\n{config.dates_label(study.window(venue, season).core)}, "
              f"{y0}-{y1}, {study.race_label} (n={len(race)})")
     return clim.make_summary_figure(df, st, title, None, source_label="HRRR F00 via AWS")
 
@@ -22,11 +23,11 @@ def diurnal_figure(study, diurnal):
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots(figsize=(8, 4.5))
     for (venue, season), ser in diurnal.items():
-        local = pd.Series(ser.values, index=(ser.index + study.utc_offset) % 24).sort_index()
-        ax.plot(local.index, local.values, marker="o", label=f"{venue.upper()} {season}")
-    ax.axvspan(study.race_start + study.utc_offset, study.race_end + study.utc_offset,
+        local = pd.Series(ser.values, index=(ser.index + study.offset_for(venue)) % 24).sort_index()
+        ax.plot(local.index, local.values, marker="o", label=study.window_label(venue, season))
+    ax.axvspan(*study.race_local,
                color="grey", alpha=0.12, label="racing hours")
-    ax.set_xlabel(f"Local hour ({study.tz_abbr})"); ax.set_ylabel("Mean wind (kt)")
+    ax.set_xlabel("Venue Local Time"); ax.set_ylabel("Mean wind (kt)")
     ax.set_xticks(range(0, 24, 3)); ax.set_xlim(-0.5, 23.5)
     ax.set_title(f"Diurnal mean wind, core windows {min(study.years)}-{max(study.years)}")
     ax.grid(alpha=0.3)
@@ -34,7 +35,7 @@ def diurnal_figure(study, diurnal):
     return fig
 
 
-def validation_figure(scatter):
+def validation_figure(scatter, labels=None):
     """HRRR vs buoy scatter (racing hours) per venue; ``scatter`` = {venue: (pairs, buoy_id)}."""
     import matplotlib.pyplot as plt
     fig, axes = plt.subplots(1, len(scatter), figsize=(11, 5), squeeze=False)
@@ -45,7 +46,7 @@ def validation_figure(scatter):
         ax.set_xlim(0, lim); ax.set_ylim(0, lim)
         ax.set_xlabel(f"Buoy {buoy_id} wind adj. to 10 m (kt)")
         ax.set_ylabel("HRRR F00 (kt)")
-        ax.set_title(f"{venue.upper()}: racing hours, n={len(sub)}")
+        ax.set_title(f"{(labels or {}).get(venue, venue.upper())}: racing hours, n={len(sub)}")
         ax.grid(alpha=0.3)
     fig.tight_layout()
     return fig

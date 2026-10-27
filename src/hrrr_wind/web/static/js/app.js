@@ -1,6 +1,7 @@
 import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { api, patch } from "./api.js";
+import { setShorts } from "./util.js";
 import { html } from "./components.js";
 import { SetupPage } from "./page_setup.js";
 import { ResultsPage, useStudyData } from "./page_results.js";
@@ -57,6 +58,7 @@ function App() {
   const [version, setVersion] = useState(0);   // bumped when results or caches change
   const [renaming, setRenaming] = useState(null);
   const sid = route.sid;
+  if (meta) setShorts(meta.venues, meta.windows);   // labels used while rendering this study
 
   useEffect(() => {
     const on = () => setRoute(parse()); addEventListener("hashchange", on);

@@ -34,6 +34,6 @@ def write_validation(study, val):
         return
     out = study.out_dir
     out.mkdir(parents=True, exist_ok=True)
-    _save(plots.validation_figure(val.scatter), out / "validation_scatter.png")
+    _save(plots.validation_figure(val.scatter, {k: v.label for k, v in study.venues.items()}), out / "validation_scatter.png")
     val.metrics.to_csv(out / "validation_metrics.csv", index=False)
     val.adjusted.to_csv(out / "bias_adjusted_summary.csv", index=False)

@@ -4,7 +4,7 @@ import { html } from "./components.js";
 import { debounce } from "./util.js";
 
 const TILE = ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", "Imagery © Esri"];
-const ZONES = [["EDT", -4], ["EST", -5], ["CDT", -5], ["CST", -6], ["MDT", -6], ["MST", -7], ["PDT", -7], ["PST", -8]];
+export const ZONES = [["EDT", -4], ["EST", -5], ["CDT", -5], ["CST", -6], ["MDT", -6], ["MST", -7], ["PDT", -7], ["PST", -8]];
 const FILES_PER_SECOND = 1.9;     // observed download rate; for the estimate only
 const MMDD = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const BUFFER_DAYS = 3;            // keep in step with config.BUFFER_DAYS
@@ -12,7 +12,11 @@ const MAX_WINDOWS = 6;
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MDAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const pad = (n) => String(n).padStart(2, "0");
-const seasonOf = (w) => w.season || MON[+w.start.slice(0, 2) - 1].toLowerCase();   // blank name = month of the start date
+// Internal window id: the start month, numbered when two windows start in the same month. Never shown.
+const seasonOf = (w, i, all) => {
+  const m = MON[+w.start.slice(0, 2) - 1].toLowerCase(), n = all.slice(0, i + 1).filter((x) => x.start.slice(0, 2) === w.start.slice(0, 2)).length;
+  return n > 1 ? m + n : m;
+};
 
 // Month + day pickers producing "MM-DD" (so nobody types dates or hits Feb 30).
 export function DateSelect({ value, onChange }) {
@@ -66,10 +70,10 @@ const preview = debounce(async (body, ok, fail) => {
 export function NewStudyPage({ meta, studies, mode, onDone }) {
   const adding = mode === "add";
   const thisYear = new Date().getFullYear();
-  const [s, setS] = useState({ name: "", y0: 2015, y1: thisYear - 1, h0: 10, h1: 16, zone: 0 });
-  const [v, setV] = useState({ name: "", key: "", keyTouched: false, bearing: 90, offshore_nm: 2, radius_nm: 4 });
+  const [s, setS] = useState({ name: "", y0: 2015, y1: thisYear - 1, h0: 11, h1: 16, zone: 0 });
+  const [v, setV] = useState({ name: "", key: "", keyTouched: false, bearing: 90, offshore_nm: 2, radius_nm: 4, zone: null });
   const [club, setClub] = useState(null);
-  const [wins, setWins] = useState([{ season: "", start: "09-08", end: "09-14" }]);
+  const [wins, setWins] = useState([{ start: "09-08", end: "09-14" }]);
   const [geo, setGeo] = useState(null), [pErr, setPErr] = useState(null), [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null), [startNow, setStartNow] = useState(true);
   const setSv = (k) => (e) => setS({ ...s, [k]: e.target.type === "number" ? Number(e.target.value) : e.target.value });
@@ -78,12 +82,15 @@ export function NewStudyPage({ meta, studies, mode, onDone }) {
 
   const years = adding ? meta.years : Array.from({ length: Math.max(0, s.y1 - s.y0 + 1) }, (_, i) => s.y0 + i);
   const [zoneName, offset] = adding ? [meta.tz_abbr, meta.utc_offset] : ZONES[s.zone];
+  // A venue added to an existing study may be in another time zone; the racing hours stay the same local hours.
+  const zones = adding && !ZONES.some(([n, o]) => n === meta.tz_abbr && o === meta.utc_offset) ? [[meta.tz_abbr, meta.utc_offset], ...ZONES] : ZONES;
+  const vzone = v.zone ?? Math.max(0, zones.findIndex(([n, o]) => n === zoneName && o === offset));
   const key = v.keyTouched ? v.key : slugify(v.name, 12).replace(/_/g, "").replace(/^[0-9]+/, "");
   const slug = slugify(s.name, 40);
   const winOk = (w) => MMDD.test(w.start) && MMDD.test(w.end) && day(w.end) >= day(w.start)
     && day(w.start) - BUFFER_DAYS >= day("01-01") && day(w.end) + BUFFER_DAYS <= day("12-31")
-    && day(w.end) - day(w.start) + 1 + 2 * BUFFER_DAYS <= 45 && /^[a-z][a-z0-9]{0,11}$/.test(seasonOf(w));
-  const dupSeason = new Set(wins.map(seasonOf)).size !== wins.length;
+    && day(w.end) - day(w.start) + 1 + 2 * BUFFER_DAYS <= 45;
+  const dupDates = new Set(wins.map((w) => `${w.start}|${w.end}`)).size !== wins.length;
   const spans = [...new Set(wins.filter(winOk).map((w) => `${w.start}|${w.end}`))];
   const files = spans.reduce((a, k) => { const [x, y] = k.split("|"); return a + (day(y) - day(x) + 1 + 2 * BUFFER_DAYS) * 24 * years.length; }, 0);
 
@@ -105,15 +112,17 @@ export function NewStudyPage({ meta, studies, mode, onDone }) {
     [!adding || !meta.venues.some((x) => x.key === key), "That venue id is already in this study"],
     [club, "Click the club's position on the map"],
     [!ago, "The sample point's box has no water cells: increase the distance offshore, change the bearing, or widen the box"],
-    [wins.length && wins.every(winOk) && !dupSeason, "Each window needs a short season label and valid MM-DD dates (at least 3 days from the year's ends, at most 39 days long), one per season"],
+    [wins.length && wins.every(winOk) && !dupDates, "Each window needs valid dates (at least 3 days from the year's ends, at most 39 days long), and no two windows may repeat the same dates"],
   ];
   const problem = (checks.find(([ok]) => !ok) || [])[1];
 
   const submit = async () => {
     setBusy(true); setErr(null);
     const venue = { key, name: v.name.trim(), lat: Number(club.lat.toFixed(5)), lon: Number(club.lon.toFixed(5)),
-      bearing: v.bearing, offshore_nm: v.offshore_nm, radius_nm: v.radius_nm };
-    const windows = wins.map((w) => ({ season: seasonOf(w), core: [w.start, w.end] }));
+      bearing: v.bearing, offshore_nm: v.offshore_nm, radius_nm: v.radius_nm,
+      ...(adding ? { tz_abbr: zones[vzone][0], utc_offset: zones[vzone][1] } : {}) };
+    // Adding to an existing study: the server picks each window's id, so new dates never clash with an old id.
+    const windows = wins.map((w, i, all) => ({ ...(adding ? {} : { season: seasonOf(w, i, all) }), core: [w.start, w.end] }));
     try {
       let id = meta?.id;
       if (adding) await post(`studies/${id}/venues`, { venue, windows });
@@ -141,6 +150,8 @@ export function NewStudyPage({ meta, studies, mode, onDone }) {
       </div>`}
       <div class="card controls"><h2>${adding ? `Add a venue to ${meta.name}` : "Venue"}</h2>
         <label class="f">Club or venue name<input type="text" maxlength="60" value=${v.name} onInput=${setVv("name")} placeholder="Port Clinton Yacht Club" /></label>
+        ${adding && html`<label class="f">Time zone (racing hours are local: ${meta.race_label})<select value=${vzone} onChange=${(e) => setV({ ...v, zone: Number(e.target.value) })}>
+          ${zones.map(([zn, o], i) => html`<option value=${i}>${zn} (UTC${o})</option>`)}</select></label>`}
         <label class="f">Short id (file names)<input type="text" maxlength="12" value=${key} onInput=${(e) => setV({ ...v, key: e.target.value, keyTouched: true })} /></label>
         <p class="small ${club ? "muted" : "err"}">${club ? `Club position ${club.lat.toFixed(5)}, ${club.lon.toFixed(5)}. Click the map again to move it.` : "Click the club on the satellite map (zoom in to the docks or flagpole)."}</p>
         <label class="f">Bearing from club to sample point: ${v.bearing}° true
@@ -154,13 +165,12 @@ export function NewStudyPage({ meta, studies, mode, onDone }) {
         ${pErr && html`<p class="small muted">Map preview unavailable: ${pErr}</p>`}
       </div>
       <div class="card controls"><h2>Windows</h2>
-        <p class="small muted">The dates raced each year (the core window); the download adds ${BUFFER_DAYS} days either side for context. Windows with the same name must use the same dates.</p>
+        <p class="small muted">The dates raced each year (the core window); the download adds ${BUFFER_DAYS} days either side for context. </p>
         ${wins.map((w, i) => html`<div class="row" style="align-items:end;flex-wrap:wrap">
-          <label class="f" style="flex:1;min-width:90px">Name<input type="text" maxlength="12" value=${w.season} placeholder=${seasonOf(w)} onInput=${(e) => setWins(wins.map((x, j) => (j === i ? { ...x, season: e.target.value.trim().toLowerCase() } : x)))} /></label>
           <label class="f">From<${DateSelect} value=${w.start} onChange=${(v) => setWins(wins.map((x, j) => (j === i ? { ...x, start: v } : x)))} /></label>
           <label class="f">To<${DateSelect} value=${w.end} onChange=${(v) => setWins(wins.map((x, j) => (j === i ? { ...x, end: v } : x)))} /></label>
           ${wins.length > 1 && html`<button onClick=${() => setWins(wins.filter((_, j) => j !== i))} title="Remove window">×</button>`}</div>`)}
-        ${wins.length < MAX_WINDOWS && html`<button onClick=${() => setWins([...wins, { season: "", start: "06-14", end: "06-21" }])}>Add window</button>`}
+        ${wins.length < MAX_WINDOWS && html`<button onClick=${() => setWins([...wins, { start: "06-14", end: "06-21" }])}>Add window</button>`}
       </div>
       <div class="card controls">
         <label class="small"><input type="checkbox" checked=${startNow} onChange=${(e) => setStartNow(e.target.checked)} /> Start the download and analysis now</label>

@@ -1,5 +1,5 @@
 import { html, Table } from "./components.js";
-import { fmt, label, range } from "./util.js";
+import { fmt, label, range, short } from "./util.js";
 
 const nice = { mean_kt: "Mean wind (kt)", pct_5_20: "Share in 5–20 kt (points)", pct_ge20: "Share at 20 kt or more (points)" };
 
@@ -10,8 +10,10 @@ export function ComparePage({ meta, data }) {
     const mm = (f) => [Math.min(...rows.map(f)), Math.max(...rows.map(f))];
     return { venue, season, n: rows.length, mean: mm((r) => r.mean), lt5: mm((r) => r.pct_lt5), mid: mm((r) => r.pct_5_20), ge20: mm((r) => r.pct_ge20) };
   });
+  const order = (g) => meta.windows.findIndex((w) => w.venue === g.venue && w.season === g.season);
+  groups.sort((x, y) => order(x) - order(y));
   return html`<div class="grid">
-    ${paired.map((p) => html`<div class="card"><h2>${p.a.toUpperCase()} minus ${p.b.toUpperCase()}, ${label("", p.season).trim()}</h2>
+    ${paired.map((p) => html`<div class="card"><h2>${short(p.a)} minus ${short(p.b)}, ${label("", p.season)}</h2>
       <p class="small muted">Paired by day; confidence intervals resample whole years.</p>
       <${Table} cols=${[
         { head: "Metric", cell: (r) => nice[r.metric.split(" ").slice(3).join(" ")] || r.metric },

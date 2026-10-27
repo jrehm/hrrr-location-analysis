@@ -331,12 +331,18 @@ def test_edit_venue_window_and_remove(api):
     assert (v["name"], v["bearing"], v["offshore_nm"], v["lat"]) == ("ABC renamed", 120, 3, 43.4)
     assert config.study_dict(path)["venues"][0]["sensitivity_bearings"] == [120.0]
     assert (root / "demo" / "study.toml.bak").exists()
+    assert v["short"] == "ABC"
+    r = c.patch("/api/studies/demo/venues/abc", json={"short": "Abc YC"})
+    assert r.json()["venues"][0]["short"] == "Abc YC" and config.load_study(path).venues["abc"].label == "Abc YC"
+    assert c.patch("/api/studies/demo/venues/abc", json={"short": "x" * 13}).status_code == 422
+    r = c.patch("/api/studies/demo/venues/abc", json={"short": ""})   # empty resets to the default
+    assert r.json()["venues"][0]["short"] == "ABC" and "short" not in config.study_dict(path)["venues"][0]
     assert c.patch("/api/studies/demo/venues/abc", json={"offshore_nm": 99}).status_code == 422
     assert c.patch("/api/studies/demo/venues/nope", json={"bearing": 1}).status_code == 404
     # windows: add a june window (re-adding later finds the cache), remove it again
-    w = {"venue": "abc", "season": "jun", "core": ["06-14", "06-21"]}
+    w = {"venue": "abc", "core": ["06-14", "06-21"]}   # no season: derived from the dates
     r = c.post("/api/studies/demo/windows", json=w)
-    assert r.status_code == 201 and [x["season"] for x in r.json()["windows"]] == ["sep", "jun"]
+    assert r.status_code == 201 and [x["season"] for x in r.json()["windows"]] == ["jun", "sep"]
     assert r.json()["status"]["state"] == "partial"
     assert c.post("/api/studies/demo/windows", json=w).status_code == 422                 # duplicate
     assert c.post("/api/studies/demo/windows", json={**w, "venue": "zzz"}).status_code == 404
@@ -403,3 +409,72 @@ def test_rename_does_not_stale_results_that_predate_fingerprints(api):
     assert c.get("/api/studies/demo").json()["status"]["state"] == "ready"
     c.patch("/api/studies/demo", json={"name": "Renamed"})
     assert c.get("/api/studies/demo").json()["status"]["state"] == "ready"
+
+
+def test_derive_season_and_dates_label():
+    ws = [{"season": "sep", "core": ["09-08", "09-14"]}]
+    assert config.derive_season(ws, ["09-08", "09-14"]) == "sep"        # same dates: shares the id, so venues pair
+    assert config.derive_season(ws, ["09-20", "09-25"]) == "sep2"       # same month, other dates: numbered
+    assert config.derive_season(ws, ["06-14", "06-21"]) == "jun"
+    assert config.dates_label(["09-08", "09-14"]) == "Sep 8–14"
+    assert config.dates_label(["09-28", "10-02"]) == "Sep 28–Oct 2"
+
+
+def test_venues_and_windows_listed_alphabetically(api):
+    c, root = api
+    study_with_data(c, root)
+    v = {"key": "zed", "name": "2019 alpha club", "lat": 43.5, "lon": -82.5, "bearing": 90, "offshore_nm": 2, "radius_nm": 4}
+    assert c.post("/api/studies/demo/venues", json={"venue": v, "windows": [{"core": ["09-08", "09-14"]}]}).status_code == 201
+    m = c.get("/api/studies/demo").json()
+    assert [x["name"] for x in m["venues"]] == sorted((x["name"] for x in m["venues"]), key=str.casefold)
+    assert m["venues"][0]["key"] == "zed" and m["windows"][0]["venue"] == "zed"
+    assert c.get("/api/studies").json()[0]["venues"] == [x["name"] for x in m["venues"]]
+
+
+def test_add_venue_with_new_dates_in_an_existing_month(api):
+    c, root = api
+    study_with_data(c, root)   # has a "sep" window on 09-08..09-14
+    v = {"key": "xyz", "name": "XYZ", "lat": 43.5, "lon": -82.5, "bearing": 90, "offshore_nm": 2, "radius_nm": 4}
+    r = c.post("/api/studies/demo/venues", json={"venue": v, "windows": [{"core": ["09-20", "09-25"]}]})
+    assert r.status_code == 201, r.text
+    assert sorted(w["season"] for w in r.json()["windows"] if w["venue"] == "xyz") == ["sep2"]
+
+
+def test_racing_hours_are_local_per_venue(tmp_path):
+    d = {"name": "Zones", "years": [2020, 2021], "race_hours_utc": [15, 20], "utc_offset": -4, "tz_abbr": "EDT",
+         "venues": [{"key": "ea", "name": "East", "lat": 43.0, "lon": -82.0, "bearing": 90, "offshore_nm": 2},
+                    {"key": "we", "name": "West", "lat": 33.7, "lon": -118.1, "bearing": 200, "offshore_nm": 2,
+                     "utc_offset": -7, "tz_abbr": "PDT"},
+                    {"key": "same", "name": "Same", "lat": 42.0, "lon": -83.0, "bearing": 90, "offshore_nm": 2,
+                     "utc_offset": -4, "tz_abbr": "EDT"}],
+         "windows": [{"venue": k, "season": "sep", "core": ["09-08", "09-14"]} for k in ("ea", "we", "same")]}
+    path = tmp_path / "study.toml"
+    config.write_study(path, d)
+    s = config.load_study(path)
+    assert list(s.race_utc_for("ea")) == list(range(15, 21))      # 11 AM-4 PM EDT
+    assert list(s.race_utc_for("we")) == list(range(18, 24))      # 11 AM-4 PM PDT
+    assert s.venues["same"].utc_offset is None                    # same as the study's: not recorded
+    assert s.race_label == "11AM-4PM local time"
+    assert s.fingerprint() != config.load_study(_without_zone(path, tmp_path)).fingerprint()
+    d["venues"][1]["utc_offset"] = 14                             # 11:00-16:00 at UTC+14 starts before the UTC day
+    with pytest.raises(config.DefinitionError):
+        config.validate_definition(d)
+
+
+def _without_zone(path, tmp_path):
+    d = config.study_dict(path)
+    for v in d["venues"]:
+        v.pop("utc_offset", None), v.pop("tz_abbr", None)
+    out = tmp_path / "nozone" / "study.toml"
+    config.write_study(out, d)
+    return out
+
+
+def test_short_name_does_not_change_the_fingerprint(tmp_path):
+    d = {"name": "S", "years": [2020, 2021], "race_hours_utc": [15, 20], "utc_offset": -4, "tz_abbr": "EDT",
+         "venues": [{"key": "ea", "name": "East", "lat": 43.0, "lon": -82.0, "bearing": 90, "offshore_nm": 2}],
+         "windows": [{"venue": "ea", "season": "sep", "core": ["09-08", "09-14"]}]}
+    a, b = tmp_path / "a" / "study.toml", tmp_path / "b" / "study.toml"
+    config.write_study(a, d)
+    config.write_study(b, {**d, "venues": [{**d["venues"][0], "short": "East YC"}]})
+    assert config.load_study(a).fingerprint() == config.load_study(b).fingerprint()

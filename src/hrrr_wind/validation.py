@@ -118,12 +118,12 @@ class ValidationResults:
 
 def run_validation(study, progress=None):
     """Compare HRRR with each venue's buoy; return metrics, bias-adjusted stats, scatter data."""
-    race = study.race_utc
-    race_label = f"racing hrs ({study.race_start}-{study.race_end} UTC)"
     metric_rows, adj_rows, scatter = [], [], {}
     for k, (venue, b) in enumerate(study.buoys.items()):
         if progress:
             progress(k / len(study.buoys), f"validating {venue} against buoy {b.id}")
+        race = study.race_utc_for(venue)
+        race_label = f"racing hrs ({race.start}-{race.stop - 1} UTC)"
         obs = hourly_obs(load_ndbc(study.buoy_files(venue)))
         fac = height_factor(b.anem_m)
         fac_pow = height_factor(b.anem_m, method="power")

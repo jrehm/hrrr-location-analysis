@@ -1,11 +1,26 @@
 import { h } from "preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import htm from "htm";
 import { cssVar } from "./util.js";
 
 export const html = htm.bind(h);
 
 // ``foot``: optional totals row, one cell per column.
+// An (i) button that opens a small panel of explanatory text; closes on Esc, outside click or the button.
+export function InfoPopup({ title, children }) {
+  const [open, setOpen] = useState(false), box = useRef();
+  useEffect(() => {
+    if (!open) return;
+    const key = (e) => e.key === "Escape" && setOpen(false);
+    const away = (e) => box.current && !box.current.contains(e.target) && setOpen(false);
+    addEventListener("keydown", key); addEventListener("mousedown", away);
+    return () => { removeEventListener("keydown", key); removeEventListener("mousedown", away); };
+  }, [open]);
+  return html`<span class="info" ref=${box}>
+    <button class="info-btn" aria-label=${title} aria-expanded=${open} title=${title} onClick=${() => setOpen(!open)}>i</button>
+    ${open && html`<div class="info-panel" role="dialog" aria-label=${title}><b>${title}</b>${children}</div>`}</span>`;
+}
+
 export function Table({ cols, rows, caption, foot }) {
   return html`<div class="tablewrap"><table>
     ${caption && html`<caption class="small muted" style="text-align:left;padding-bottom:6px">${caption}</caption>`}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { api, del } from "./api.js";
 import { Confirm, html, Table } from "./components.js";
-import { label, yearRanges } from "./util.js";
+import { label, short, yearRanges } from "./util.js";
 
 const fileUrl = (meta, kind, name) => `studies/${meta.id}/${kind}/${encodeURIComponent(name)}`;
 
@@ -13,7 +13,7 @@ function Cleanup({ meta, onChanged }) {
   const total = caches.reduce((a, c) => a + c.mb, 0) + buoys.reduce((a, b) => a + b.mb, 0);
   if (!caches.length && !buoys.length) return null;
   const rows = [...caches.map((c) => ({ key: c.file, kind: "caches", name: c.file, what: `wind cache ${c.file}`, mb: c.mb,
-      why: c.in_study ? "no window or buoy uses it" : `venue ${c.venue.toUpperCase()} is no longer in the study` })),
+      why: c.in_study ? "no window or buoy uses it" : `venue ${short(c.venue)} is no longer in the study` })),
     ...buoys.map((b) => ({ key: "b" + b.dir, kind: "buoy-data", name: b.dir, what: `buoy data folder ${b.dir} (${b.files} files)`, mb: b.mb, why: "no buoy of this study uses it" }))];
   const remove = async (r) => {
     setBusy(true); setErr(null);
@@ -40,7 +40,7 @@ export function FilesPage({ meta, data, onChanged }) {
   return html`<div class="grid">
     <div class="card"><h2>Wind data on disk</h2>
       <p class="small muted">Hourly HRRR wind caches. Years in a file that are not in the study are kept but not used. A cache nothing uses (for example after removing a venue) is kept too; see Unused data below.</p>
-      <${Table} cols=${[{ head: "Venue", left: true, cell: (c) => c.venue.toUpperCase() + (c.in_study ? "" : " (removed)") }, { head: "Years", left: true, cell: (c) => (c.years.length ? yearRanges(c.years) : "unreadable") },
+      <${Table} cols=${[{ head: "Venue", left: true, cell: (c) => short(c.venue) + (c.in_study ? "" : " (removed)") }, { head: "Years", left: true, cell: (c) => (c.years.length ? yearRanges(c.years) : "unreadable") },
         { head: "Size", cell: (c) => `${c.mb.toFixed(1)} MB` }, { head: "Used by", left: true, cell: (c) => c.used_by || "nothing (kept)" }]} rows=${meta.caches}
         foot=${[`Total: ${meta.caches.length} file${meta.caches.length === 1 ? "" : "s"}`, "", mbOf(sum(meta.caches, (c) => c.mb)), ""]} /></div>
     <div class="card"><h2>Buoy data on disk</h2>

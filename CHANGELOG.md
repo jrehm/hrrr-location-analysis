@@ -8,9 +8,18 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 
 ## [Unreleased]
 ### Changed
+- New studies default to racing 11 AM-4 PM local (was 10 AM-4 PM).
 - The web app's default port is now 8123 (was 8000, which clashed with other local apps); the Dockerfile and README follow. `--port` still overrides it.
+- Each wind rose on the Overview page is scaled to its own largest direction instead of one scale shared by all windows, so a venue with one dominant direction no longer flattens the others. The rings stay labelled.
 
 ### Added
+- The Time of day chart shades the hours outside the racing window in gray.
+- Racing hours are local time at each venue. A venue can have its own time zone (`utc_offset` and `tz_abbr` on a venue in `study.toml`; a time zone field when adding a venue and in **Rename**), and the same local hours (study setting) map to different UTC hours, so a Pacific venue is read at 11 AM-4 PM PDT, not EDT. Diurnal charts are drawn in each venue's own local time.
+- An (i) button on the Overview page explains the mean and its range, year to year, usable days, the speed bar and the wind rose (it replaces the caption under the roses).
+- Overview cards show a **year to year** figure: the standard deviation of the yearly race-week mean wind ("± 1.3 kt"), with the range of the yearly means in its tooltip. It needs at least three years.
+- Venues are listed alphabetically by name everywhere (study list, Inputs, charts, tables), and a venue's windows by date, so a year at the start of a name sorts them chronologically.
+- Windows no longer ask for a name. Each is identified by its race dates ("Sep 8–14"), shown in tables, charts and legends, and the venue label appears alone when it has one window. The internal window id (`season` in `study.toml`, CSVs and cache names) is derived from the start month and unchanged for existing studies.
+- Rename a venue from the Venues page (**Rename**) or the Sample point page: the long name and a new optional **short label** (up to 12 characters, `short` in `study.toml`, default the id in capitals) used in tables and charts. The id used in file names never changes.
 - Files tab: a **Buoy data on disk** section (venue, buoy, years, files, size) and a totals row or line at the bottom of every section. The `/api/studies/{id}/files` list now carries file sizes.
 - Delete a whole study in two steps. **Delete this study** (bottom of the Inputs page; the study's name must be typed) moves it to `studies/.trash/`; a **Trash** card (on the Inputs and New study pages) restores a trashed study or empties the trash, which needs a second confirmation where `empty trash` is typed. The locked reference study, read-only servers and studies with a running job are refused.
 - Set up validation from the Validation tab: choose a nearby NDBC buoy for each venue on a satellite map (stations within

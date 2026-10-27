@@ -1,6 +1,6 @@
 import { useRef, useState } from "preact/hooks";
 import { html, Table, binColors } from "./components.js";
-import { fmt, label, pct } from "./util.js";
+import { fmt, label, pct, short } from "./util.js";
 import { del } from "./api.js";
 import { BuoySetup } from "./page_buoys.js";
 
@@ -66,9 +66,9 @@ export function ValidationPage({ meta, data, onChanged }) {
     <${BuoyList} meta=${meta} onChanged=${onChanged} />
     <div class="card"><h2>HRRR versus buoys <${HowInfo} /></h2>
       <p class="small muted">Bias is HRRR minus buoy (negative: HRRR reads low). Buoy winds are scaled from the anemometer height to 10 m with a neutral log profile.
-        ${meta.buoys.map((b) => html` Buoy <${StationLink} id=${b.id} /> serves ${b.venue.toUpperCase()}.`)}</p>
+        ${meta.buoys.map((b) => html` Buoy <${StationLink} id=${b.id} /> serves ${short(b.venue)}.`)}</p>
       <${Table} cols=${[
-        { head: "Venue", left: true, cell: (r) => html`${r.venue.toUpperCase()} (<${StationLink} id=${r.buoy} />)` },
+        { head: "Venue", left: true, cell: (r) => html`${short(r.venue)} (<${StationLink} id=${r.buoy} />)` },
         { head: "Buoy to sample point (nm)", cell: (r) => { const b = buoy(r.venue); return b ? fmt(b.sample_distance_nm) : "–"; } },
         ...(all ? [{ head: "HRRR sampling", left: true, cell: (r) => r.hrrr_sampling }, { head: "Height adj.", left: true, cell: (r) => r.height_adj }, { head: "Subset", left: true, cell: (r) => r.subset }] : []),
         { head: "Pairs", cell: (r) => r.n }, { head: "Bias (kt)", cell: (r) => fmt(r.bias_kt) },

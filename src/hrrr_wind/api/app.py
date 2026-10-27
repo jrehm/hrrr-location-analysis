@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 from hrrr_wind import __version__, ndbc, trash
 from hrrr_wind.cache import box_cells, load_cache
 from hrrr_wind.config import (_years_of, FIRST_YEAR, LOCKED_STUDIES, SLUG_RE, STUDIES_DIR, DefinitionError, buoy_caches, cache_plan,
-                              cache_years, load_study, set_years, study_dict, validate_definition, window_tag,
+                              cache_years, derive_season, load_study, set_years, study_dict, validate_definition, window_tag,
                               write_study)
 from hrrr_wind.climatology import project_point
 from hrrr_wind.jobs import JobConflict, JobError, JobManager
@@ -139,7 +139,7 @@ def list_studies():
     for sid in study_paths():
         s = get_study(sid)
         out.append({"id": sid, "name": s.name, "years": [min(s.years), max(s.years)],
-                    "venues": [v.name for v in s.venues.values()], "locked": sid in LOCKED_STUDIES,
+                    "venues": [v.name for v in by_name(s.venues.values())], "locked": sid in LOCKED_STUDIES,
                     "state": study_status(sid, s)["state"]})
     return out
 
@@ -200,6 +200,17 @@ def year_chips(s):
     return out
 
 
+def by_name(venues):
+    """Venues in alphabetical order of their names (case-insensitive), as every list in the UI shows them."""
+    return sorted(venues, key=lambda v: v.name.casefold())
+
+
+def sorted_windows(s):
+    """Windows grouped by venue in alphabetical order, earliest dates first within a venue."""
+    rank = {v.key: i for i, v in enumerate(by_name(s.venues.values()))}
+    return sorted(s.windows, key=lambda w: (rank[w.venue], w.core))
+
+
 @app.get("/api/studies/{sid}")
 def study_meta(sid: str):
     s = get_study(sid)
@@ -210,11 +221,12 @@ def study_meta(sid: str):
         "locked": sid in LOCKED_STUDIES, "plan": cache_plan(s), "status": study_status(sid, s),
         "has_results": (s.out_dir / "summary_stats.csv").exists(),
         "venues": [{"key": v.key, "name": v.name, "lat": v.lat,
-                    "lon": v.lon, "bearing": v.bearing,
+                    "lon": v.lon, "short": v.label, "bearing": v.bearing,
+                    "utc_offset": s.offset_for(v.key), "tz_abbr": s.tz_for(v.key),
                     "offshore_nm": v.offshore_nm, "radius_nm": v.radius_nm}
-                   for v in s.venues.values()],
+                   for v in by_name(s.venues.values())],
         "windows": [{"venue": w.venue, "season": w.season, "core": list(w.core), "cache_tag": w.cache_tag,
-                     "cache": window_info(s, w)} for w in s.windows],
+                     "cache": window_info(s, w)} for w in sorted_windows(s)],
         "year_chips": year_chips(s),
         "pairs": [{"a": p.a, "b": p.b, "season": p.season} for p in s.pairs],
         "buoys": [{"venue": b.venue, "id": b.id, "lat": b.lat, "lon": b.lon, "anem_m": b.anem_m,
@@ -264,7 +276,7 @@ def quick_stats(sid: str, venue: str, season: str, bearing: float,
                     radius_nm=radius_nm)
     if d is None:
         return {"n_cells": 0}
-    r = d[(d["md"] >= w.lo) & (d["md"] <= w.hi) & d["hour"].isin(s.race_utc)]
+    r = d[(d["md"] >= w.lo) & (d["md"] <= w.hi) & d["hour"].isin(s.race_utc_for(venue))]
     st = summarize(r["spd_kt"], r["dir"])
     return {"n_cells": d.attrs["n_cells"], **{k: float(v) for k, v in st.items()}}
 
@@ -293,7 +305,7 @@ def windrose(sid: str, venue: str, season: str):
     if not s.has_data(w):
         return {"n": 0, "no_data": True}
     d = load_series(s, venue, w.tags)
-    r = d[(d["md"] >= w.lo) & (d["md"] <= w.hi) & d["hour"].isin(s.race_utc)]
+    r = d[(d["md"] >= w.lo) & (d["md"] <= w.hi) & d["hour"].isin(s.race_utc_for(venue))]
     return windrose_table(r["spd_kt"], r["dir"])
 
 
@@ -308,7 +320,7 @@ def diurnal(sid: str):
         d = load_series(s, w.venue, w.tags)
         d = d[(d["md"] >= w.lo) & (d["md"] <= w.hi)]
         h = d.groupby("hour")["spd_kt"].mean()
-        local = pd.Series(h.values, index=(h.index + s.utc_offset) % 24).sort_index()
+        local = pd.Series(h.values, index=(h.index + s.offset_for(w.venue)) % 24).sort_index()
         out.append({"venue": w.venue, "season": w.season, "hours": local.index.tolist(),
                     "mean_kt": [float(x) for x in local.values]})
     return out
@@ -489,8 +501,9 @@ def add_venue(sid: str, req: NewVenue):
         years = validate_definition(d)["years"]
         d["venues"].append(req.venue)
         for w in req.windows:
-            d["windows"].append({**w, "venue": req.venue.get("key"),
-                                 "cache_tag": window_tag(w.get("season", ""), years, req.venue.get("key"))})
+            season = w.get("season") or derive_season(d["windows"], w.get("core"))
+            d["windows"].append({**w, "season": season, "venue": req.venue.get("key"),
+                                 "cache_tag": window_tag(season, years, req.venue.get("key"))})
         write_study(study_paths()[sid], d, backup=True)
     except DefinitionError as e:
         raise HTTPException(422, str(e))
@@ -542,6 +555,9 @@ class Rename(BaseModel):
 
 class VenuePatch(BaseModel):
     name: str | None = None
+    short: str | None = None    # "" resets to the default (the key in capitals)
+    utc_offset: int | None = None   # with tz_abbr: the venue's time zone (the same as the study's clears it)
+    tz_abbr: str | None = None
     bearing: float | None = None
     offshore_nm: float | None = None
     radius_nm: float | None = None
@@ -549,7 +565,7 @@ class VenuePatch(BaseModel):
 
 class NewWindow(BaseModel):
     venue: str
-    season: str
+    season: str | None = None    # internal id; derived from the dates when absent
     core: list[str]
 
 
@@ -571,6 +587,13 @@ def edit_venue(sid: str, key: str, req: VenuePatch):
         old = v.get("bearing")
         if req.name is not None:
             v.update(name=req.name, lat=study.venues[key].lat, lon=study.venues[key].lon)
+        if req.short is not None:
+            if req.short.strip():
+                v["short"] = req.short
+            else:
+                v.pop("short", None)
+        if req.utc_offset is not None and req.tz_abbr:
+            v["utc_offset"], v["tz_abbr"] = req.utc_offset, req.tz_abbr
         for k in ("bearing", "offshore_nm", "radius_nm"):
             if getattr(req, k) is not None:
                 v[k] = getattr(req, k)
@@ -595,8 +618,9 @@ def remove_venue(sid: str, key: str):
 def add_window(sid: str, req: NewWindow):
     def mutate(d, study):
         find_row(d["venues"], key=req.venue)
-        d["windows"].append({"venue": req.venue, "season": req.season, "core": req.core,
-                             "cache_tag": window_tag(req.season, d["years"], req.venue)})
+        season = req.season or derive_season(d["windows"], req.core)
+        d["windows"].append({"venue": req.venue, "season": season, "core": req.core,
+                             "cache_tag": window_tag(season, d["years"], req.venue)})
         set_years(d, d["years"], study.out_dir)          # a re-added window may need years its old cache lacks
     return edit_study(sid, mutate)
 

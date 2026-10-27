@@ -48,6 +48,13 @@ class Venue:
     name: str | None = None
     lat: float | None = None
     lon: float | None = None
+    # Display label for tables and figures; defaults to the key in capitals. Left out of repr (and so of the
+    # study fingerprint) because it never changes the analysis.
+    short: str | None = field(default=None, repr=False)
+    # Time zone of the venue when it differs from the study's (UTC offset in hours and its abbreviation).
+    # Racing hours are local, so this moves the venue's UTC racing hours. Fingerprinted separately.
+    utc_offset: int | None = field(default=None, repr=False)
+    tz_abbr: str | None = field(default=None, repr=False)
 
     def __post_init__(self):
         if self.name is None or self.lat is None or self.lon is None:
@@ -55,6 +62,10 @@ class Venue:
             for attr in ("name", "lat", "lon"):
                 if getattr(self, attr) is None:
                     object.__setattr__(self, attr, p[attr])
+
+    @property
+    def label(self):
+        return self.short or self.key.upper()
 
     @property
     def preset(self):
@@ -134,14 +145,34 @@ class Study:
 
     @property
     def race_utc(self):
+        """Racing hours in UTC for the study's own time zone (venues with another zone: race_utc_for)."""
         return range(self.race_start, self.race_end + 1)
+
+    @property
+    def race_local(self):
+        """First and last racing hour in the study's own time zone."""
+        return self.race_start + self.utc_offset, self.race_end + self.utc_offset
+
+    def offset_for(self, venue):
+        v = self.venues[venue]
+        return self.utc_offset if v.utc_offset is None else v.utc_offset
+
+    def tz_for(self, venue):
+        return self.venues[venue].tz_abbr or self.tz_abbr
+
+    def race_utc_for(self, venue):
+        """The UTC hours that are racing hours at a venue: the same local hours everywhere."""
+        a, b = self.race_local
+        off = self.offset_for(venue)
+        return range(a - off, b - off + 1)
 
     @property
     def race_label(self):
         def f(h):
             h = (h + self.utc_offset) % 24
             return f"{h % 12 or 12}{'AM' if h < 12 else 'PM'}"
-        return f"{f(self.race_start)}-{f(self.race_end)} {self.tz_abbr}"
+        zones = {self.tz_for(k) for k in self.venues} or {self.tz_abbr}
+        return f"{f(self.race_start)}-{f(self.race_end)} {zones.pop() if len(zones) == 1 else 'local time'}"
 
     def cache_path(self, venue, tag):
         return self.out_dir / f"cache_{venue}_{tag}.npz"
@@ -166,6 +197,9 @@ class Study:
         parts = (self.years, self.race_start, self.race_end, self.utc_offset, self.tz_abbr,
                  self.bootstrap_draws, self.seed, self.sens_offshore_nm, self.sens_radius_nm,
                  list(self.venues.values()), self.windows, self.pairs)
+        zones = [(v.key, v.utc_offset, v.tz_abbr) for v in self.venues.values() if v.utc_offset is not None]
+        if zones:                       # only when set, so studies without per-venue zones keep their old hash
+            parts += (zones,)
         if buoys is not None:
             parts += (list(buoys),)
         return hashlib.sha256(repr(parts).encode()).hexdigest()
@@ -173,6 +207,16 @@ class Study:
     def buoy_files(self, venue):
         b = self.buoys[venue]
         return sorted((self.buoy_dir / b.dir).glob(b.pattern))
+
+    def window(self, venue, season):
+        return next(w for w in self.windows if w.venue == venue and w.season == season)
+
+    def window_label(self, venue, season):
+        """Display label for a window: the venue label, plus the dates when the venue has several."""
+        v, ws = self.venues[venue], self.windows_for(venue)
+        if len(ws) < 2:
+            return v.label
+        return f"{v.label} {dates_label(self.window(venue, season).core)}"
 
     def windows_for(self, venue):
         return [w for w in self.windows if w.venue == venue]
@@ -216,7 +260,8 @@ def load_study(path=None):
         sens_radius_nm=list(t["sensitivity"]["radius_nm"]),
         venues={v["key"]: Venue(v["key"], v["bearing"], v["offshore_nm"], v["radius_nm"],
                                 tuple(v.get("sensitivity_bearings", [v["bearing"]])),
-                                v.get("name"), v.get("lat"), v.get("lon"))
+                                v.get("name"), v.get("lat"), v.get("lon"), v.get("short"),
+                                v.get("utc_offset"), v.get("tz_abbr"))
                 for v in t["venues"]},
         windows=[Window(w["venue"], w["season"], w["cache_tag"], tuple(w["core"]),
                         tuple(w.get("more_caches", [])))
@@ -344,6 +389,24 @@ def set_years(d, years, out_dir):
                 w.pop("more_caches", None)
 
 
+def dates_label(core):
+    """("09-08", "09-14") -> "Sep 8-14"; across months "Sep 28-Oct 2"."""
+    (m0, d0), (m1, d1) = ((int(x) for x in c.split("-")) for c in core)
+    names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    return f"{names[m0 - 1]} {d0}\u2013{d1}" if m0 == m1 else f"{names[m0 - 1]} {d0}\u2013{names[m1 - 1]} {d1}"
+
+
+def derive_season(windows, core):
+    """Internal window id for new dates: reuse the id of an existing window with the same dates
+    (so venues racing the same week pair up), else the start month, numbered if already taken."""
+    for w in windows:
+        if list(w["core"]) == list(core):
+            return w["season"]
+    month = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"][_mmdd(core[0], "core start").month - 1]
+    taken = {w["season"] for w in windows}
+    return next(s for s in (month, *(f"{month}{n}" for n in range(2, 99))) if s not in taken)
+
+
 def window_tag(season, years, venue=None):
     """Cache tag for a window: shared by venues of a new study, venue-suffixed for added venues."""
     tag = f"{season}_{min(years)}_{max(years)}"
@@ -399,8 +462,8 @@ def validate_definition(d):
     for v in raw_venues:
         if not isinstance(v, dict):
             raise DefinitionError("each venue must be an object")
-        if set(v) - {"key", "name", "lat", "lon", "bearing", "offshore_nm", "radius_nm", "sensitivity_bearings"}:
-            raise DefinitionError(f"unknown venue field(s): {sorted(set(v) - {'key', 'name', 'lat', 'lon', 'bearing', 'offshore_nm', 'radius_nm', 'sensitivity_bearings'})}")
+        if set(v) - {"key", "name", "lat", "lon", "short", "utc_offset", "tz_abbr", "bearing", "offshore_nm", "radius_nm", "sensitivity_bearings"}:
+            raise DefinitionError(f"unknown venue field(s): {sorted(set(v) - {'key', 'name', 'lat', 'lon', 'short', 'utc_offset', 'tz_abbr', 'bearing', 'offshore_nm', 'radius_nm', 'sensitivity_bearings'})}")
         key = v.get("key")
         if not isinstance(key, str) or not KEY_RE.match(key):
             raise DefinitionError("venue key must be 1-12 lowercase letters/digits, starting with a letter")
@@ -413,6 +476,20 @@ def validate_definition(d):
             row["name"] = _text(v.get("name"), f"{key} name", 60)
             row["lat"] = _number(v.get("lat"), f"{key} latitude", *CONUS_LAT)
             row["lon"] = _number(v.get("lon"), f"{key} longitude", *CONUS_LON)
+        if v.get("short") not in (None, ""):
+            row["short"] = _text(v["short"], f"{key} short name", 12)
+        if v.get("utc_offset") is not None or v.get("tz_abbr") is not None:
+            row["utc_offset"] = _int(v.get("utc_offset"), f"{key} utc_offset", -12, 14)
+            tzv = v.get("tz_abbr")
+            if not isinstance(tzv, str) or not re.fullmatch(r"[A-Za-z0-9]{1,6}", tzv):
+                raise DefinitionError(f"{key} tz_abbr must be 1-6 letters or digits")
+            row["tz_abbr"] = tzv
+            if row["utc_offset"] == out["utc_offset"] and tzv == out["tz_abbr"]:
+                del row["utc_offset"], row["tz_abbr"]     # same as the study's: nothing to record
+        local0, local1 = h0 + out["utc_offset"], h1 + out["utc_offset"]
+        off = row.get("utc_offset", out["utc_offset"])
+        if local0 - off < 0 or local1 - off > 23:
+            raise DefinitionError(f"{key}: the racing hours ({local0}:00-{local1}:00 local) fall outside one UTC day in its time zone")
         row["bearing"] = bearing
         row["offshore_nm"] = _number(v.get("offshore_nm"), f"{key} offshore distance", 0, 30, lo_open=True)
         row["radius_nm"] = _number(v.get("radius_nm", 4.0), f"{key} radius", 0, 10, lo_open=True)

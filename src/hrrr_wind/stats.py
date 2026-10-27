@@ -219,7 +219,7 @@ def run_analysis(study, progress=None):
 
     rng = np.random.default_rng(study.seed)
     B = study.bootstrap_draws
-    n_race = len(study.race_utc)
+    n_race = study.race_end - study.race_start + 1
     rows, yearrows, quality = [], [], []
     res = AnalysisResults(None, None, None, None)
     for w in study.windows:
@@ -230,7 +230,7 @@ def run_analysis(study, progress=None):
                              "move the sample point offshore or widen the box, then rerun")
         for scope, a, b in (("core", w.lo, w.hi), ("buffer", None, None)):
             d = base if scope == "buffer" else base[(base["md"] >= a) & (base["md"] <= b)]
-            race = d[d["hour"].isin(study.race_utc)].reset_index(drop=True)
+            race = d[d["hour"].isin(study.race_utc_for(w.venue))].reset_index(drop=True)
             st = summarize(race["spd_kt"], race["dir"])
             ci = year_bootstrap(race, rng, B, n_race)
             ud, nd = usable_day_share(race, n_race)
@@ -272,7 +272,7 @@ def run_analysis(study, progress=None):
                 d = load_series(study, w.venue, w.tags, offshore_nm=off, radius_nm=rad)
                 if d is None:
                     continue
-                r = d[(d["md"] >= w.lo) & (d["md"] <= w.hi) & d["hour"].isin(study.race_utc)]
+                r = d[(d["md"] >= w.lo) & (d["md"] <= w.hi) & d["hour"].isin(study.race_utc_for(w.venue))]
                 st = summarize(r["spd_kt"], r["dir"])
                 band.append({"venue": w.venue, "season": w.season, "offshore_nm": off,
                              "radius_nm": rad, "n_cells": d.attrs["n_cells"],

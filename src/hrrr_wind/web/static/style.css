@@ -130,3 +130,11 @@ dialog.infobox form { text-align: right; margin: 0; }
 .row .grow { flex: 1; min-width: 0; }
 main a:not(.card):not(.on) { color: var(--accent); }
 tfoot tr.total td { font-weight: 600; border-top: 2px solid var(--line); border-bottom: 0; }
+
+.info { position: relative; display: inline-block; }
+.info-btn { width: 20px; height: 20px; padding: 0; border-radius: 50%; font: italic 700 12px/1 Georgia, serif; line-height: 18px; text-align: center; color: var(--accent); background: var(--panel); border: 1px solid var(--accent); cursor: pointer; }
+.info-panel { position: absolute; z-index: 20; top: 28px; left: 0; width: min(460px, calc(100vw - 32px)); padding: 12px 16px; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 24px rgba(0, 0, 0, .18); font-size: 13px; font-weight: 400; line-height: 1.45; }
+.info-panel dl { margin: 8px 0 0; }
+.info-panel dt { font-weight: 600; margin-top: 8px; }
+.info-panel dd { margin: 2px 0 0; color: var(--muted); }
+.info-panel p { margin: 10px 0 0; color: var(--muted); }
