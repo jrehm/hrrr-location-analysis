@@ -65,13 +65,15 @@ export function ResultsPage({ meta, data }) {
       x: { ...chartDefaults().scales.x, title: { display: true, text: "Venue Local Time", color: chartDefaults().plugins.legend.labels.color } } } },
   };
   const colors = binColors();
+  // Share of racing hours below 5, 5-10, 10-20 and 20+ kt, from the rose's speed bins (0-5, 5-10, 10-15, 15-20, 20+).
+  const speeds = (r) => [r.distribution[0], r.distribution[1], r.distribution[2] + r.distribution[3], r.distribution[4]];
   return html`<div class="grid">
     <div class="row small muted" style="gap:8px;align-items:center">Racing-hour wind for each window <${InfoPopup} title="What these numbers mean">
       <dl>
         <dt>Mean (range)</dt><dd>Average wind speed over the racing hours of the race dates, all years pooled. The range in brackets is a 95% confidence interval, found by resampling whole years, so it reflects how much the answer depends on which years happened.</dd>
         <dt>Year to year</dt><dd>How much the yearly average moves: the standard deviation of the yearly race-week means. A small value means most years look alike; a large one means the week can be much windier or lighter than typical. Hover for the range of the yearly means. It needs at least three years.</dd>
         <dt>Usable days</dt><dd>Share of race days with at least 3 consecutive racing hours at 5 to 20 knots. Days with a missing hour are left out.</dd>
-        <dt>Speed bar</dt><dd>Share of racing hours ${"<"} 5 kt (blue), 5 to 20 kt (green) and 20 kt or more (orange).</dd>
+        <dt>Speed bar</dt><dd>Share of racing hours ${"<"} 5 kt (blue), 5 to 10 kt (light green), 10 to 20 kt (dark green) and 20 kt or more (orange).</dd>
         <dt>Wind rose</dt><dd>Share of hours by the direction the wind blows from, split by speed (colours as in the legend). Each rose is scaled to its own largest direction, so compare shapes between venues and use the numbers above for strength. The rings are labelled in percent.</dd>
       </dl>
       <p>Winds are HRRR model values at the sample point, which tend to run lower than buoys (see the Validation tab).</p><//></div>
@@ -80,8 +82,8 @@ export function ResultsPage({ meta, data }) {
       <div class="stat"><div><b>${fmt(c.mean)} kt</b><span class="small muted">mean (${range(c.mean_lo, c.mean_hi)})</span></div>
         ${ys && html`<div title=${`Standard deviation of the ${ys.n} yearly means, which range from ${fmt(ys.lo)} to ${fmt(ys.hi)} kt`}><b>± ${fmt(ys.sd)} kt</b><span class="small muted">year to year</span></div>`}
         <div><b>${pct(c.usable_day_pct)}</b><span class="small muted">usable days</span></div></div>
-      <div class="bar">${[c.pct_lt5, c.pct_5_20, c.pct_ge20].map((v, k) => html`<i title=${pct(v)} style=${{ width: v + "%", background: [colors[0], colors[2], colors[4]][k] }}></i>`)}</div>
-      <div class="legend"><span>${"<"} 5 kt ${pct(c.pct_lt5)}</span><span>5–20 kt ${pct(c.pct_5_20)}</span><span>≥ 20 kt ${pct(c.pct_ge20, 1)}</span></div>
+      <div class="bar">${speeds(roses[i]).map((v, k) => html`<i title=${pct(v)} style=${{ width: v + "%", background: [colors[0], colors[1], colors[3], colors[4]][k] }}></i>`)}</div>
+      <div class="legend"><span>${"<"} 5 kt ${pct(speeds(roses[i])[0])}</span><span>5–10 ${pct(speeds(roses[i])[1])}</span><span>10–20 ${pct(speeds(roses[i])[2])}</span><span>≥ 20 kt ${pct(speeds(roses[i])[3], 1)}</span></div>
       <${Rose} data=${roses[i]} />
       <p class="small muted">${c.n} racing hours.</p>
     </div>`; })}</div>

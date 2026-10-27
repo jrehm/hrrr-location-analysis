@@ -1,6 +1,6 @@
 """NDBC buoy stations and historical observations (network code, together with cache.py).
 
-``stations`` reads NOAA's active-station list; ``download_stdmet`` fetches one standard
+``stations`` reads NOAA's station metadata (retired stations too, since their archived years remain usable); ``download_stdmet`` fetches one standard
 meteorological file per year into a study's ``data/buoys/<dir>`` folder. Files already on disk are
 never replaced. ``validation.load_ndbc`` reads what lands here.
 """
@@ -13,10 +13,12 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-STATIONS_URL = "https://www.ndbc.noaa.gov/activestations.xml"
+STATIONS_URL = "https://www.ndbc.noaa.gov/metadata/stationmetadata.xml"   # most stations, with their location history
+ACTIVE_URL = "https://www.ndbc.noaa.gov/activestations.xml"                # also lists some the metadata lacks (e.g. Marine METAR sites)
 STDMET_URL = "https://www.ndbc.noaa.gov/data/historical/stdmet/{id}h{year}.txt.gz"
 ARCHIVE_URL = "https://www.ndbc.noaa.gov/data/historical/stdmet/"
-STATION_CACHE = Path.home() / ".cache" / "hrrr_wind" / "ndbc_stations.json"
+STATION_CACHE = Path.home() / ".cache" / "hrrr_wind" / "ndbc_station_metadata.json"
+STATION_MAX_AGE_S = 86400
 ARCHIVE_CACHE = Path.home() / ".cache" / "hrrr_wind" / "ndbc_archive_years.json"
 ARCHIVE_MAX_AGE_S = 7 * 86400
 ID_RE = re.compile(r"^[A-Za-z0-9]{4,8}$")
@@ -46,21 +48,48 @@ def bearing_distance(lat0, lon0, lat, lon):
 
 
 def parse_stations(xml_text):
-    """Stations that report meteorology: [{id, name, lat, lon, type, owner}]."""
+    """Stations that have reported meteorology, active or retired: [{id, name, lat, lon, type, owner, retired, ended}].
+
+    A station can have several location histories; the latest one that reported meteorology gives its position
+    (a moored buoy that was moved is placed where it last measured wind). ``retired`` is true when that
+    history has ended, and ``ended`` is the year it did.
+    """
     out = []
     for s in ET.fromstring(xml_text).iter("station"):
         a = s.attrib
-        if a.get("met") == "y":
-            out.append({"id": a["id"], "name": a.get("name", ""), "lat": float(a["lat"]), "lon": float(a["lon"]),
-                        "type": a.get("type", ""), "owner": a.get("owner", "")})
+        met = [h.attrib for h in s.iter("history") if h.get("met") == "y"]
+        if not met:
+            continue
+        h = max(met, key=lambda x: x.get("start", ""))
+        stop = h.get("stop", "")
+        out.append({"id": a["id"].lower(), "name": a.get("name", ""), "lat": float(h["lat"]), "lon": float(h["lng"]),
+                    "type": a.get("type", ""), "owner": a.get("owner", ""),
+                    "retired": bool(stop), "ended": stop[:4] if stop else ""})
     return out
 
 
-def stations(opener=urlopen, cache_path=STATION_CACHE):
-    """The active met stations. A fresh download refreshes ``cache_path``; offline, that copy is used."""
+def parse_active_stations(xml_text):
+    """The active-station list's wind reporters, in the same shape as ``parse_stations``."""
+    return [{"id": a["id"].lower(), "name": a.get("name", ""), "lat": float(a["lat"]), "lon": float(a["lon"]),
+             "type": a.get("type", ""), "owner": a.get("owner", ""), "retired": False, "ended": ""}
+            for s in ET.fromstring(xml_text).iter("station") if (a := s.attrib).get("met") == "y"]
+
+
+def stations(opener=urlopen, cache_path=STATION_CACHE, max_age_s=STATION_MAX_AGE_S):
+    """The met stations, retired ones included. The 1 MB list is kept for a day in ``cache_path``;
+    when a fresh download fails, an older copy is used."""
+    import time
+    if max_age_s and cache_path.exists() and time.time() - cache_path.stat().st_mtime < max_age_s:
+        return json.loads(cache_path.read_text())
     try:
-        with opener(STATIONS_URL, timeout=TIMEOUT_S) as r:
+        with opener(STATIONS_URL, timeout=120) as r:
             found = parse_stations(r.read())
+        try:                         # stations only the active list knows about are added; its failure is not fatal
+            with opener(ACTIVE_URL, timeout=TIMEOUT_S) as r:
+                have = {s["id"] for s in found}
+                found += [s for s in parse_active_stations(r.read()) if s["id"] not in have]
+        except (OSError, ET.ParseError):
+            pass
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         cache_path.write_text(json.dumps(found))
         return found

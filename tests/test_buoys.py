@@ -12,9 +12,12 @@ from hrrr_wind.config import Buoy, buoy_caches, load_study
 from tests.test_study_flow import DEFN, VENUE
 
 XML = b"""<?xml version="1.0"?><stations>
-<station id="45020" lat="43.60" lon="-82.00" name="Near" type="buoy" met="y" owner="X"/>
-<station id="45999" lat="43.50" lon="-80.00" name="Far" type="buoy" met="y" owner="X"/>
-<station id="99999" lat="43.51" lon="-82.00" name="NoWind" type="buoy" met="n" owner="X"/></stations>"""
+<station id="45020" name="Near" type="buoy" owner="X"><history start="2010-01-01" stop="" lat="43.60" lng="-82.00" met="y"/></station>
+<station id="45999" name="Far" type="buoy" owner="X"><history start="2010-01-01" stop="" lat="43.50" lng="-80.00" met="y"/></station>
+<station id="99999" name="NoWind" type="buoy" owner="X"><history start="2010-01-01" stop="" lat="43.51" lng="-82.00" met="n"/></station>
+<station id="OLD01" name="Retired" type="fixed" owner="X">
+  <history start="2005-01-01" stop="2021-06-01" lat="43.55" lng="-82.10" met="y"/>
+  <history start="2001-01-01" stop="2005-01-01" lat="43.40" lng="-82.50" met="y"/></station></stations>"""
 
 
 class Resp(io.BytesIO):
@@ -36,9 +39,22 @@ def fake_open(body_for):
 
 def test_stations_keep_wind_reporters_and_sort_by_distance(tmp_path):
     found = ndbc.stations(fake_open(lambda u: XML), tmp_path / "s.json")
-    assert [s["id"] for s in found] == ["45020", "45999"]
+    assert [s["id"] for s in found] == ["45020", "45999", "old01"]
     near = ndbc.stations_near(found, 43.5, -82.0, 60)
-    assert [s["id"] for s in near] == ["45020"] and near[0]["distance_nm"] == pytest.approx(6.0, abs=0.1)
+    assert [s["id"] for s in near] == ["old01", "45020"] and near[1]["distance_nm"] == pytest.approx(6.0, abs=0.1)
+    old = next(s for s in found if s["id"] == "old01")     # retired: placed where it last measured wind
+    assert (old["retired"], old["ended"], old["lat"], old["lon"]) == (True, "2021", 43.55, -82.10)
+    assert not found[0]["retired"] and found[0]["ended"] == ""
+
+
+def test_stations_only_in_the_active_list_are_added(tmp_path):
+    active = b"""<stations><station id="kp58" lat="44.0" lon="-82.8" name="Port Hope" type="fixed" met="y" owner="X"/>
+    <station id="45020" lat="43.6" lon="-82.0" name="dup" type="buoy" met="y" owner="X"/></stations>"""
+    body = lambda u: active if "activestations" in u else XML
+    found = ndbc.stations(fake_open(body), tmp_path / "s.json")
+    assert [s["id"] for s in found] == ["45020", "45999", "old01", "kp58"]      # 45020 is not listed twice
+    ok = ndbc.stations(fake_open(lambda u: None if "activestations" in u else XML), tmp_path / "t.json")
+    assert len(ok) == 3                                                         # an active-list failure is not fatal
 
 
 def test_station_list_falls_back_to_saved_copy_offline(tmp_path):
@@ -46,7 +62,8 @@ def test_station_list_falls_back_to_saved_copy_offline(tmp_path):
     ndbc.stations(fake_open(lambda u: XML), cache)
     def down(url, timeout=None):
         raise OSError("offline")
-    assert len(ndbc.stations(down, cache)) == 2
+    assert len(ndbc.stations(down, cache)) == 3                    # fresh copy: no download at all
+    assert len(ndbc.stations(down, cache, max_age_s=0)) == 3       # stale copy: used when the download fails
     with pytest.raises(ConnectionError):
         ndbc.stations(down, tmp_path / "none.json")
 

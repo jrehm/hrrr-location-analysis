@@ -8,11 +8,13 @@ files, MINOR for new features, PATCH for fixes. The version lives in one place,
 
 ## [Unreleased]
 ### Changed
+- The speed bar above each wind rose splits the 5-20 kt share into 5-10 and 10-20 kt. "Usable days" still counts 5-20 kt.
 - New studies default to racing 11 AM-4 PM local (was 10 AM-4 PM).
 - The web app's default port is now 8123 (was 8000, which clashed with other local apps); the Dockerfile and README follow. `--port` still overrides it.
 - Each wind rose on the Overview page is scaled to its own largest direction instead of one scale shared by all windows, so a venue with one dominant direction no longer flattens the others. The rings stay labelled.
 
 ### Added
+- The buoy picker on the Validation tab now lists retired NDBC stations too (such as GSLM4, Gravelly Shoal Light, which has archived data for 2005-2025), tagged "retired" when NDBC has closed the station. The station list comes from NDBC's station metadata and is kept for a day.
 - The Time of day chart shades the hours outside the racing window in gray.
 - Racing hours are local time at each venue. A venue can have its own time zone (`utc_offset` and `tz_abbr` on a venue in `study.toml`; a time zone field when adding a venue and in **Rename**), and the same local hours (study setting) map to different UTC hours, so a Pacific venue is read at 11 AM-4 PM PDT, not EDT. Diurnal charts are drawn in each venue's own local time.
 - An (i) button on the Overview page explains the mean and its range, year to year, usable days, the speed bar and the wind rose (it replaces the caption under the roses).

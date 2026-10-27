@@ -65,7 +65,7 @@ export function BuoySetup({ meta, venue, onStarted, onCancel }) {
     <div class="tablewrap"><table><thead><tr><th></th><th style="text-align:left">Station</th><th>Distance</th><th style="text-align:left">Type</th><th style="text-align:left">Observations in study years</th><th style="text-align:left">HRRR data</th></tr></thead>
       <tbody>${list.stations.map((x) => html`<tr key=${x.id} onClick=${() => pick(x.id)} style=${{ cursor: x.years.length ? "pointer" : "default", opacity: x.years.length ? 1 : 0.5, background: x.id === sel ? "var(--wash)" : "" }}>
         <td><input type="radio" name="buoy" disabled=${!x.years.length} checked=${x.id === sel} onChange=${() => pick(x.id)} aria-label=${"Choose " + x.id} /></td>
-        <td style="text-align:left"><b>${x.id}</b> ${x.name}</td><td>${x.distance_nm} nm ${compass(x.bearing)}</td><td style="text-align:left">${x.type}</td><td style="text-align:left">${spanOf(x.years)}</td>
+        <td style="text-align:left"><b>${x.id}</b> ${x.name}${x.retired && html` <span class="chip" title="NDBC no longer lists this station as reporting wind; its archived years can still be used">retired ${x.ended}</span>`}</td><td>${x.distance_nm} nm ${compass(x.bearing)}</td><td style="text-align:left">${x.type}</td><td style="text-align:left">${spanOf(x.years)}</td>
         <td style="text-align:left">${x.covered ? "already covered" : `extra download, ${x.extra_files.toLocaleString()} files (${fmtMinutes(x.extra_minutes)})`}</td></tr>`)}</tbody></table></div>`}
     ${s && html`<div class="card"><h3 style="margin-top:0">Buoy ${s.id}: ${s.name}</h3>
       <label class="f" style="max-width:260px">Anemometer height (m)
