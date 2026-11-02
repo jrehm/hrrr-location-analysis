@@ -1,0 +1,98 @@
+name = "Lake St. Clair Regatta"
+years = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
+race_hours_utc = [15, 20]
+utc_offset = -4
+tz_abbr = "EDT"
+bootstrap_draws = 2000
+seed = 42
+
+[sensitivity]
+offshore_nm = [1.0, 2.0, 3.0, 4.0, 6.0]
+radius_nm = [2.0, 4.0, 6.0]
+
+[[venues]]
+key = "csyc"
+name = "Crescent Sail Yacht Club"
+lat = 42.40225
+lon = -82.88506
+bearing = 70.0
+offshore_nm = 2.0
+radius_nm = 4.0
+sensitivity_bearings = [70.0]
+
+[[venues]]
+key = "glyc"
+name = "Great Lakes Yacht Club"
+lat = 42.466
+lon = -82.88063
+bearing = 70.0
+offshore_nm = 2.5
+radius_nm = 4.0
+sensitivity_bearings = [70.0]
+
+[[venues]]
+key = "byc"
+name = "Bayview Yacht Club"
+lat = 42.35532
+lon = -82.95219
+bearing = 73.0
+offshore_nm = 4.0
+radius_nm = 4.0
+sensitivity_bearings = [73.0]
+
+[[venues]]
+key = "tryc"
+name = "Thames River Yacht Club"
+lat = 42.31626
+lon = -82.45256
+bearing = 305.0
+offshore_nm = 4.0
+radius_nm = 4.0
+sensitivity_bearings = [305.0]
+
+[[windows]]
+venue = "csyc"
+season = "sep"
+cache_tag = "sep_2015_2017"
+core = ["09-08", "09-14"]
+more_caches = ["sep_2018_2018_csyc", "sep_2019_2020_csyc", "sep_2021_2025_csyc", "sep_2026_2026_csyc"]
+
+[[windows]]
+venue = "glyc"
+season = "sep"
+cache_tag = "sep_2015_2017_glyc"
+core = ["09-08", "09-14"]
+more_caches = ["sep_2018_2018_glyc", "sep_2019_2020_glyc", "sep_2021_2025_glyc", "sep_2026_2026_glyc"]
+
+[[windows]]
+venue = "byc"
+season = "sep"
+cache_tag = "sep_2015_2020_byc"
+core = ["09-08", "09-14"]
+more_caches = ["sep_2021_2025_byc", "sep_2026_2026_byc"]
+
+[[windows]]
+venue = "tryc"
+season = "sep"
+cache_tag = "sep_2015_2026_tryc"
+core = ["09-08", "09-14"]
+
+[[buoys]]
+venue = "csyc"
+id = "clsm4"
+lat = 42.471
+lon = -82.877
+anem_m = 10.0
+dir = "Buoy_clsm4"
+pattern = "clsm4h*.txt.gz"
+caches = ["sep_2015_2017", "sep_2018_2018_csyc", "sep_2019_2020_csyc", "sep_2021_2025_csyc", "sep_2026_2026_csyc"]
+
+[[buoys]]
+venue = "glyc"
+id = "clsm4"
+lat = 42.471
+lon = -82.877
+anem_m = 10.0
+dir = "Buoy_clsm4"
+pattern = "clsm4h*.txt.gz"
+caches = ["sep_2015_2017_glyc", "sep_2018_2018_glyc", "sep_2019_2020_glyc", "sep_2021_2025_glyc", "sep_2026_2026_glyc"]

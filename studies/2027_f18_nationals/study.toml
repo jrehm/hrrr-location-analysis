@@ -1,0 +1,210 @@
+name = "F18 Venue Comparison"
+years = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
+race_hours_utc = [15, 20]
+utc_offset = -4
+tz_abbr = "EDT"
+bootstrap_draws = 2000
+seed = 42
+
+[sensitivity]
+offshore_nm = [1.0, 2.0, 3.0, 4.0, 6.0]
+radius_nm = [2.0, 4.0, 6.0]
+
+[[venues]]
+key = "hyc"
+name = "27 Houston Yacht Club"
+lat = 29.61752
+lon = -95.00128
+short = "27 HYC"
+utc_offset = -5
+tz_abbr = "CDT"
+bearing = 37.0
+offshore_nm = 1.5
+radius_nm = 2.0
+sensitivity_bearings = [37.0]
+
+[[venues]]
+key = "hhi"
+name = "26 Hilton Head Island"
+lat = 32.14151
+lon = -80.74854
+short = "26 HHI"
+bearing = 140.0
+offshore_nm = 1.5
+radius_nm = 2.0
+sensitivity_bearings = [140.0]
+
+[[venues]]
+key = "ryc24"
+name = "24 Richmond Yacht Club"
+lat = 37.91027
+lon = -122.38357
+short = "24 RYC"
+utc_offset = -7
+tz_abbr = "PDT"
+bearing = 260.0
+offshore_nm = 1.5
+radius_nm = 2.0
+sensitivity_bearings = [260.0]
+
+[[venues]]
+key = "sn25"
+name = "25 Sail Newport"
+lat = 41.47462
+lon = -71.33698
+short = "25 SLNPT"
+bearing = 350.0
+offshore_nm = 2.5
+radius_nm = 2.0
+sensitivity_bearings = [350.0]
+
+[[venues]]
+key = "bb23"
+name = "23 Burlington Beach"
+lat = 43.2785
+lon = -79.78169
+short = "23 BB"
+bearing = 80.0
+offshore_nm = 1.5
+radius_nm = 2.0
+sensitivity_bearings = [80.0]
+
+[[venues]]
+key = "clwtr22"
+name = "22 Clearwater"
+lat = 27.95716
+lon = -82.83267
+short = "22 CLWTR"
+bearing = 300.0
+offshore_nm = 1.5
+radius_nm = 2.0
+sensitivity_bearings = [300.0]
+
+[[venues]]
+key = "abyc21"
+name = "21 Alamitos Bay Yacht Club"
+lat = 33.74588
+lon = -118.11741
+short = "21 ABYC"
+utc_offset = -7
+tz_abbr = "PDT"
+bearing = 170.0
+offshore_nm = 2.5
+radius_nm = 2.0
+sensitivity_bearings = [170.0]
+
+[[venues]]
+key = "csyc19"
+name = "19 CSYC"
+lat = 42.40244
+lon = -82.8856
+short = "19 CSYC"
+bearing = 70.0
+offshore_nm = 2.0
+radius_nm = 2.0
+sensitivity_bearings = [70.0]
+
+[[venues]]
+key = "case28"
+name = "28 Caseville"
+lat = 43.94845
+lon = -83.27505
+short = "28 CASE"
+bearing = 308.0
+offshore_nm = 2.0
+radius_nm = 2.0
+sensitivity_bearings = [308.0]
+
+[[windows]]
+venue = "hyc"
+season = "apr"
+cache_tag = "apr_2015_2026"
+core = ["04-05", "04-09"]
+
+[[windows]]
+venue = "hhi"
+season = "sep"
+cache_tag = "sep_2015_2026_hhi"
+core = ["09-21", "09-25"]
+
+[[windows]]
+venue = "ryc24"
+season = "seplate"
+cache_tag = "seplate_2015_2026_ryc24"
+core = ["09-23", "09-27"]
+
+[[windows]]
+venue = "sn25"
+season = "aug"
+cache_tag = "aug_2015_2026_sn25"
+core = ["08-26", "08-29"]
+
+[[windows]]
+venue = "bb23"
+season = "seplate2"
+cache_tag = "seplate2_2015_2026_bb23"
+core = ["09-18", "09-22"]
+
+[[windows]]
+venue = "clwtr22"
+season = "oct"
+cache_tag = "oct_2015_2026_clwtr22"
+core = ["10-10", "10-16"]
+
+[[windows]]
+venue = "abyc21"
+season = "sep2"
+cache_tag = "sep2_2015_2026_abyc21"
+core = ["09-07", "09-12"]
+
+[[windows]]
+venue = "csyc19"
+season = "sep3"
+cache_tag = "sep3_2015_2026_csyc19"
+core = ["09-14", "09-19"]
+
+[[windows]]
+venue = "case28"
+season = "sep4"
+cache_tag = "sep4_2015_2026_case28"
+core = ["09-08", "09-14"]
+
+[[buoys]]
+venue = "hyc"
+id = "mgpt2"
+lat = 29.682
+lon = -94.985
+anem_m = 3.2
+dir = "Buoy_mgpt2"
+pattern = "mgpt2h*.txt.gz"
+caches = ["apr_2015_2026"]
+
+[[buoys]]
+venue = "abyc21"
+id = "prjc1"
+lat = 33.733
+lon = -118.186
+anem_m = 30.5
+dir = "Buoy_prjc1"
+pattern = "prjc1h*.txt.gz"
+caches = ["sep2_2015_2026_abyc21"]
+
+[[buoys]]
+venue = "case28"
+id = "gslm4"
+lat = 44.018
+lon = -83.537
+anem_m = 25.0
+dir = "Buoy_gslm4"
+pattern = "gslm4h*.txt.gz"
+caches = ["sep4_2015_2026_case28"]
+
+[[buoys]]
+venue = "hhi"
+id = "41033"
+lat = 32.28
+lon = -80.41
+anem_m = 2.95
+dir = "Buoy_41033"
+pattern = "41033h*.txt.gz"
+caches = ["val_41033_0918_0928"]
